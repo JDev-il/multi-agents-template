@@ -1,0 +1,9 @@
+{
+  "name": "multi-agents-scaffold",
+  "version": "1.0.0",
+  "description": "Project initializer for the Multi-Agent Monorepo Template",
+  "scripts": {
+    "init": "node init.js"
+  },
+  "license": "MIT"
+}
