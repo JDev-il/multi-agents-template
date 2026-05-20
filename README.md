@@ -199,6 +199,105 @@ for the job applications resource.
 
 ---
 
+## Using This Template With an Existing Project
+
+> [!IMPORTANT]
+> **The template is a coordination layer, not a folder structure requirement.**
+> The `.md` files are what matter. Folder names are just defaults - rename them to match your project.
+
+---
+
+### Scenario 1 - Existing Monorepo (frontend + backend in one repo)
+
+**This is the easiest case.**
+
+Map your existing folders to the template's naming convention, then drop in the `.md` files at the correct levels.
+
+```
+your-existing-repo/
+├── your-frontend-folder/   →   rename or map to client/
+├── your-backend-folder/    →   rename or map to backend/
+```
+
+1. Copy `CLAUDE.md` to the repo root
+2. Copy `CONTRACTS.md` to the repo root
+3. Copy `client/CLAUDE.md` into your frontend folder
+4. Copy `backend/CLAUDE.md` into your backend folder
+5. Copy the relevant `agents/` folders into each
+6. Fill in the `@config` blocks
+
+> [!NOTE]
+> You don't have to rename your folders. Just update the paths in the root `CLAUDE.md` repo tree to reflect your actual folder names.
+
+---
+
+### Scenario 2 - Single Domain Repo (frontend only or backend only)
+
+**Only copy what applies.**
+
+If you have a frontend-only repo:
+- Add root `CLAUDE.md` and `CONTRACTS.md`
+- Add `client/CLAUDE.md` (or drop it at your src root)
+- Add the `client/agents/` folder
+
+If you have a backend-only repo:
+- Add root `CLAUDE.md` and `CONTRACTS.md`
+- Add `backend/CLAUDE.md`
+- Add the `backend/agents/` folder
+
+Skip everything else. The template is modular — unused scopes don't need to exist.
+
+---
+
+### Scenario 3 - Two Separate Repos (frontend + backend split)
+
+**This is the most complex case. You have two options:**
+
+<table>
+<tr>
+<th width="50%">Option A - Merge into a monorepo</th>
+<th width="50%">Option B - Apply partially to each repo</th>
+</tr>
+<tr>
+<td>
+
+Create a new repo, move both projects into it as subfolders, apply the full template structure.
+
+**Pros:** Full worktree parallelism, shared `CONTRACTS.md`, complete agent coordination.
+
+**Cons:** Disruptive migration, requires team alignment.
+
+</td>
+<td>
+
+Apply the template independently to each repo. Each gets its own root `CLAUDE.md` and agent files.
+
+**Pros:** Zero migration effort, works immediately.
+
+**Cons:** No shared `CONTRACTS.md` seam, no cross-repo worktree parallelism. Agents coordinate manually.
+
+</td>
+</tr>
+</table>
+
+> [!TIP]
+> **Recommendation:** If you control both repos and are starting fresh work, merge into a monorepo. If you have an established codebase with existing CI/CD and team workflows, apply partially and migrate later.
+
+---
+
+### What Always Goes in Every Case
+
+Regardless of your existing structure, these three things are always required:
+
+| File | Where | Why |
+|------|-------|-----|
+| Root `CLAUDE.md` | Repo root | Global coordination law, auto-loaded by Claude Code |
+| `CONTRACTS.md` | Repo root | Shared types seam - even if empty at first |
+| At least one `<scope>/CLAUDE.md` | Your project folder | Config gate for that domain's agents |
+
+
+---
+
 ## Extending This Template
 
 **Adding a new agent:**
