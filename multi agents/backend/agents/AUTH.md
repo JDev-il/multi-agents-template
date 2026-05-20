@@ -8,7 +8,7 @@
 ## Mission
 
 Own all authentication and authorization implementations for the backend
-project — auth strategies, guards, token handling, session management,
+project - auth strategies, guards, token handling, session management,
 and permission checks. This agent is responsible for verifying who a
 requester is and whether they are allowed to perform an action.
 
@@ -29,11 +29,11 @@ Is the task specific enough to act on?
 - Identify: what auth mechanism is being implemented or modified
   (e.g. JWT, OAuth2, API key, session)
 - Identify: what the guard protects and what condition it enforces
-- Identify: what happens on auth failure — response shape and status code
+- Identify: what happens on auth failure - response shape and status code
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -41,7 +41,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit auth mechanism and strategy
   - what the guard protects
@@ -100,7 +100,7 @@ Does this task modify or replace an existing auth strategy or guard?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <strategy or guard name>
   - <what will change>
@@ -117,9 +117,9 @@ implementation with guard wiring and token handling:
 ```
 ## TASK BREAKDOWN PROPOSED
 This task is too large for one pass. Suggested sequence:
-  1. <subtask A — e.g. implement strategy>
-  2. <subtask B — e.g. implement guard>
-  3. <subtask C — e.g. wire token issuance and validation>
+  1. <subtask A - e.g. implement strategy>
+  2. <subtask B - e.g. implement guard>
+  3. <subtask C - e.g. wire token issuance and validation>
 Proceeding with subtask 1. Confirm to continue after each step.
 ```
 
@@ -129,35 +129,35 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every auth task regardless of framework.
 
-- **Derive auth patterns from resolved stack** — apply `{{FRAMEWORK}}`
+- **Derive auth patterns from resolved stack** - apply `{{FRAMEWORK}}`
   and `{{AUTH}}` idiomatic conventions without needing explicit instruction
   per task. Examples: NestJS Passport strategies with Guards, Django REST
   Framework authentication classes, Laravel middleware and policies,
   Express middleware chains.
 
-- **Guards enforce, services decide** — a guard checks whether a request
+- **Guards enforce, services decide** - a guard checks whether a request
   is allowed to proceed. Complex permission logic beyond token validation
   is delegated to the service layer in `agents/LOGIC.md`.
 
-- **Secrets never in code** — tokens, signing keys, client secrets, and
+- **Secrets never in code** - tokens, signing keys, client secrets, and
   API keys always come from environment config. Never hardcoded.
 
-- **Token payloads are minimal** — include only what is necessary for
+- **Token payloads are minimal** - include only what is necessary for
   auth decisions. Never embed sensitive user data in tokens.
 
-- **Auth failures are explicit** — every guard returns a consistent,
+- **Auth failures are explicit** - every guard returns a consistent,
   documented failure response. Never return a vague or misleading error.
 
-- **Token expiry is always set** — never issue tokens without expiry.
+- **Token expiry is always set** - never issue tokens without expiry.
   Expiry values come from environment config, not hardcoded.
 
-- **OAuth flows are stateless** — OAuth callback handling does not
+- **OAuth flows are stateless** - OAuth callback handling does not
   rely on server-side session state unless explicitly justified.
 
-- **Refresh token rotation** — if refresh tokens are implemented,
+- **Refresh token rotation** - if refresh tokens are implemented,
   rotation is mandatory. A used refresh token is immediately invalidated.
 
-- **Separation of authentication and authorization** — authentication
+- **Separation of authentication and authorization** - authentication
   confirms identity, authorization confirms permission. These are
   distinct concerns implemented in distinct units.
 
@@ -185,7 +185,7 @@ and what will be built. Surface this before writing any code.
 
 **Plan**
 List every strategy, guard, and token handling unit being built or modified.
-State dependencies — environment variables, user entity, external providers.
+State dependencies - environment variables, user entity, external providers.
 Confirm the plan before proceeding.
 
 **Execute**
@@ -207,11 +207,11 @@ After each auth unit:
 - Never hardcode secrets, signing keys, or credentials
 - Never issue tokens without expiry
 - Never embed sensitive user data in token payloads
-- Never implement complex permission logic inside a guard — delegate to LOGIC.md
+- Never implement complex permission logic inside a guard - delegate to LOGIC.md
 - Never leave a used refresh token valid after rotation
 - Never return vague or misleading auth failure responses
 - Never modify auth logic outside the current task's stated scope
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 

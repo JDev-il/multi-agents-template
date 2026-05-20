@@ -1,4 +1,4 @@
-# {{PROJECT_NAME}} — Global Agent Instructions
+# {{PROJECT_NAME}} - Global Agent Instructions
 
 # @config PROJECT_NAME: ← [required] name of this project
 
@@ -24,9 +24,9 @@
 │   ├── types/
 │   ├── enums/
 │   └── agents/
-│       └── SECURITY.md       # @agent — cross-cutting, invoke from any worktree
+│       └── SECURITY.md       # @agent - cross-cutting, invoke from any worktree
 │
-├── backend/                  # @project — remove or rename if not applicable
+├── backend/                  # @project - remove or rename if not applicable
 │   ├── CLAUDE.md             ← auto-loaded when in backend/ worktree
 │   └── agents/
 │       ├── API.md            # @agent
@@ -37,7 +37,7 @@
 │       ├── JOBS.md           # @agent
 │       └── TESTING.md        # @agent
 │
-├── client/                   # @project — remove or rename if not applicable
+├── client/                   # @project - remove or rename if not applicable
 │   ├── CLAUDE.md             ← auto-loaded when in client/ worktree
 │   └── agents/
 │       ├── UI.md             # @agent
@@ -47,7 +47,7 @@
 │       ├── TESTING.md        # @agent
 │       └── ACCESSIBILITY.md  # @agent
 │
-└── worktrees/                ← sibling worktree checkouts — never commit this folder
+└── worktrees/                ← sibling worktree checkouts - never commit this folder
 ```
 
 ---
@@ -65,9 +65,9 @@ agent/<project>/<scope>
 
 **Context loads in this order:**
 
-1. Root `CLAUDE.md` — always auto-loaded
-2. `<project>/CLAUDE.md` — auto-loaded per worktree
-3. `agents/<NAME>.md` — manually referenced per prompt
+1. Root `CLAUDE.md` - always auto-loaded
+2. `<project>/CLAUDE.md` - auto-loaded per worktree
+3. `agents/<NAME>.md` - manually referenced per prompt
    > Prompts stay thin. Agent files carry all behavioral detail.
    > Example: `Use agents/GMAIL.md. Task: implement Pub/Sub webhook processing.`
 
@@ -99,11 +99,11 @@ Awaits explicit human approval before proceeding.
 
 ## Coordination Rules
 
-1. **Domain isolation** — each agent writes only within its assigned project folder.
-2. **Shared is read-only** — no writes to `shared/` without a ratified proposal.
-3. **No cross-domain assumptions** — use `CONTRACTS.md` as the handshake between agents.
-4. **One branch per agent** — branch = agent + task scope. Never reuse.
-5. **worktrees/ is not committed** — add to `.gitignore`.
+1. **Domain isolation** - each agent writes only within its assigned project folder.
+2. **Shared is read-only** - no writes to `shared/` without a ratified proposal.
+3. **No cross-domain assumptions** - use `CONTRACTS.md` as the handshake between agents.
+4. **One branch per agent** - branch = agent + task scope. Never reuse.
+5. **worktrees/ is not committed** - add to `.gitignore`.
 <!-- @annotation: Add project-specific coordination rules here if needed. -->
 
 ---

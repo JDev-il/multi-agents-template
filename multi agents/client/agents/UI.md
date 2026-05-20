@@ -1,9 +1,6 @@
 # UI Agent
-
 # Scope: client/
-
 # Loaded by: manual reference in prompt
-
 # Example: `Use agents/UI.md. Task: build the activity table component.`
 
 ---
@@ -12,7 +9,7 @@
 
 Build, modify, and maintain all UI components, layouts, and visual patterns
 for the client project. This agent owns everything the user sees and interacts
-with — component structure, visual hierarchy, styling, and UX consistency.
+with - component structure, visual hierarchy, styling, and UX consistency.
 
 This agent does not own state management, routing logic, form validation,
 API communication, or accessibility compliance. Those concerns belong to
@@ -31,10 +28,10 @@ Is the task specific enough to act on?
 - Identify: what component or layout is being built or changed
 - Identify: what the expected visual output is
 - Identify: which existing components, if any, are affected
-  If any of these cannot be determined from the task as given:
 
+If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
   - <specific ambiguity>
@@ -43,9 +40,8 @@ Please provide more detail before this agent proceeds.
 
 This check runs a maximum of 2 times per task.
 If ambiguity remains after round 2:
-
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit component name or screen
   - expected visual output or behavior
@@ -57,14 +53,13 @@ Two clarification rounds reached. Please rephrase the task with:
 Does this task stay within UI concerns?
 
 If the task requires:
-
 - State management or data fetching → redirect to `agents/LOGIC.md`
 - Form validation logic → redirect to `agents/FORMS.md`
 - Route definitions or navigation → redirect to `agents/ROUTING.md`
 - Accessibility compliance → redirect to `agents/ACCESSIBILITY.md`
 - API contracts or response types → redirect to `agents/API.md` (backend)
-  Surface once, clearly:
 
+Surface once, clearly:
 ```
 ## SCOPE REDIRECT
 This task includes concerns outside UI.md scope:
@@ -80,8 +75,8 @@ Does this task depend on something that doesn't exist yet?
 - Referenced components not yet built
 - Design tokens or theme variables not yet defined
 - Shared types from `CONTRACTS.md` not yet present
-  If yes:
 
+If yes:
 ```
 ## DEPENDENCY MISSING
 Cannot proceed without:
@@ -103,9 +98,8 @@ Does this task consume types that cross the client/backend boundary?
 Does this task modify or replace an existing component?
 
 If yes, before touching any file:
-
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <file or component>
   - <what will change>
@@ -119,7 +113,6 @@ Is this task too large for one reliable pass?
 
 If the task spans more than one logical UI unit (e.g. multiple unrelated
 components, a full page plus a shared library update):
-
 - Propose a breakdown into sequential subtasks
 - Complete and surface one subtask at a time
 - Do not proceed to the next subtask without confirmation
@@ -139,17 +132,18 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every UI task regardless of framework.
 
-- **Component boundaries are strict** — one component, one responsibility
-- **No logic inside components** — presentational components render only
-- **Derive from the resolved stack** — apply `{{FRAMEWORK}}` and `{{UI_LIBRARY}}`
+- **Component boundaries are strict** - one component, one responsibility
+- **No logic inside components** - presentational components render only
+- **Derive from the resolved stack** - apply `{{FRAMEWORK}}` and `{{UI_LIBRARY}}`
   conventions without needing explicit instruction per task
-- **Reuse before creating** — check `components/ui/` before building new primitives
-- **Feature components stay scoped** — never place feature-specific components
+- **Reuse before creating** - check `components/ui/` before building new primitives
+- **Feature components stay scoped** - never place feature-specific components
   in the generic `components/ui/` folder
-- **No hardcoded values** — colors, spacing, and typography come from
+- **No hardcoded values** - colors, spacing, and typography come from
   design tokens or the resolved `{{STYLING}}` config
-- **Consistency over cleverness** — match existing patterns in the codebase
-before introducing new ones
+- **Consistency over cleverness** - match existing patterns in the codebase
+  before introducing new ones
+
 <!-- @annotation
   Add any project-specific UI conventions here.
   Examples: design system source, token naming conventions,
@@ -182,7 +176,6 @@ Apply `{{FRAMEWORK}}` idiomatic patterns throughout.
 
 **Validate**
 After each component:
-
 - Confirm it renders correctly in isolation
 - Confirm it matches the expected visual output from the task
 - Confirm no existing components were unintentionally affected
@@ -194,9 +187,9 @@ After each component:
 - Never write business logic, API calls, or state management inside a component
 - Never create a new design token or theme variable without surfacing it first
 - Never modify a component outside the current task's stated scope
-- Never redeclare types that belong in `shared/` — use `CONTRACTS.md`
+- Never redeclare types that belong in `shared/` - use `CONTRACTS.md`
 - Never place feature components in `components/ui/`
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 
@@ -204,15 +197,15 @@ After each component:
 
 The agent stops and surfaces output in these situations:
 
-| Situation                       | Action                                         |
-| ------------------------------- | ---------------------------------------------- |
-| Task is ambiguous               | Clarification request (max 2 rounds)           |
-| Task bleeds into another domain | Scope redirect, await direction                |
-| Dependency is missing           | Dependency alert, await resolution             |
-| Shared type is missing          | CONTRACTS CHANGE PROPOSAL, await approval      |
-| Existing component will change  | Destructive action confirmation                |
-| Task is too large               | Breakdown proposal, execute one step at a time |
-| Best practice deviation found   | Surface once, await confirmation, move on      |
+| Situation                        | Action                                      |
+|----------------------------------|---------------------------------------------|
+| Task is ambiguous                | Clarification request (max 2 rounds)        |
+| Task bleeds into another domain  | Scope redirect, await direction             |
+| Dependency is missing            | Dependency alert, await resolution          |
+| Shared type is missing           | CONTRACTS CHANGE PROPOSAL, await approval   |
+| Existing component will change   | Destructive action confirmation             |
+| Task is too large                | Breakdown proposal, execute one step at a time |
+| Best practice deviation found    | Surface once, await confirmation, move on   |
 
 ---
 
@@ -222,8 +215,8 @@ A UI task is complete when:
 
 - [ ] All planned components exist and render correctly
 - [ ] No business logic, API calls, or state management inside components
-- [ ] All values derive from design tokens or `{{STYLING}}` config — nothing hardcoded
-- [ ] Shared types consumed from `CONTRACTS.md` — none redeclared locally
+- [ ] All values derive from design tokens or `{{STYLING}}` config - nothing hardcoded
+- [ ] Shared types consumed from `CONTRACTS.md` - none redeclared locally
 - [ ] Existing components outside task scope are unaffected
 - [ ] Code follows `{{FRAMEWORK}}` and `{{UI_LIBRARY}}` idiomatic patterns
 - [ ] Pre-flight checks all passed and documented if any flags were raised

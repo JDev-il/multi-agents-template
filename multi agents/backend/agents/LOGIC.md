@@ -9,7 +9,7 @@
 
 Own all business logic, domain rules, and service layer implementations
 for the backend project. This agent is responsible for what the application
-decides and does — the rules, workflows, transformations, and orchestrations
+decides and does - the rules, workflows, transformations, and orchestrations
 that define the system's behavior.
 
 This agent does not own endpoint definitions, DTO validation, database schema,
@@ -32,7 +32,7 @@ Is the task specific enough to act on?
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -40,7 +40,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit service or domain rule name
   - what triggers it and what it returns or produces
@@ -100,7 +100,7 @@ Does this task modify or replace existing service logic?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <service or domain unit>
   - <what rules or workflows will change>
@@ -129,35 +129,35 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every backend logic task regardless of framework.
 
-- **Derive service patterns from resolved stack** — apply `{{FRAMEWORK}}`
+- **Derive service patterns from resolved stack** - apply `{{FRAMEWORK}}`
   idiomatic service and dependency injection conventions without needing
   explicit instruction per task.
   Examples: NestJS injectable services, Django service classes,
   Laravel service providers, Express middleware chains.
 
-- **Services own decisions, not controllers** — all domain rules,
+- **Services own decisions, not controllers** - all domain rules,
   conditional logic, and business decisions live here. Controllers
-  delegate to services — they never decide.
+  delegate to services - they never decide.
 
-- **One service, one domain** — a service owns one bounded concern.
+- **One service, one domain** - a service owns one bounded concern.
   Never bundle unrelated business rules into the same service unit.
 
-- **Services do not own persistence** — data access is delegated to
+- **Services do not own persistence** - data access is delegated to
   the repository or ORM layer owned by `agents/DB.md`. Services
-  receive data and return results — they do not write queries.
+  receive data and return results - they do not write queries.
 
-- **Services do not own HTTP** — no request or response objects inside
+- **Services do not own HTTP** - no request or response objects inside
   a service. Services are HTTP-agnostic by design.
 
-- **Orchestration is explicit** — when a service coordinates multiple
+- **Orchestration is explicit** - when a service coordinates multiple
   other services, the orchestration flow is documented inline.
   No hidden side effects.
 
-- **Error handling is domain-aware** — services throw or return
+- **Error handling is domain-aware** - services throw or return
   domain-specific errors, not HTTP errors. The controller layer
   maps domain errors to HTTP responses.
 
-- **Shared types from CONTRACTS.md** — never redefine cross-boundary
+- **Shared types from CONTRACTS.md** - never redefine cross-boundary
   types locally inside a service. Always consume from `shared/types/`.
 
 <!-- @annotation
@@ -192,7 +192,7 @@ one service or cross-service orchestration.
 **Execute**
 Build one service at a time. Do not jump between unrelated domain units.
 Apply `{{FRAMEWORK}}` idiomatic service patterns throughout.
-Delegate persistence to the DB layer — never write queries here.
+Delegate persistence to the DB layer - never write queries here.
 
 **Validate**
 After each service:
@@ -206,12 +206,12 @@ After each service:
 ## Safety Rules
 
 - Never implement HTTP or request/response logic inside a service
-- Never write database queries directly in a service — delegate to DB layer
-- Never redefine types that belong in `shared/` — use `CONTRACTS.md`
+- Never write database queries directly in a service - delegate to DB layer
+- Never redefine types that belong in `shared/` - use `CONTRACTS.md`
 - Never bundle unrelated domain rules into one service
-- Never produce hidden side effects — all orchestration is explicit
+- Never produce hidden side effects - all orchestration is explicit
 - Never modify service logic outside the current task's stated scope
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 
@@ -235,10 +235,10 @@ A backend logic task is complete when:
 
 - [ ] All planned services exist and enforce the correct domain rules
 - [ ] No HTTP or request/response objects inside any service
-- [ ] No database queries written directly in services — all delegated
-- [ ] All shared types consumed from `CONTRACTS.md` — none redeclared locally
+- [ ] No database queries written directly in services - all delegated
+- [ ] All shared types consumed from `CONTRACTS.md` - none redeclared locally
 - [ ] Domain errors are thrown, not HTTP errors
-- [ ] All orchestration flows are explicit — no hidden side effects
+- [ ] All orchestration flows are explicit - no hidden side effects
 - [ ] No unrelated domain rules bundled into the same service
 - [ ] No service logic outside task scope is affected
 - [ ] Code follows `{{FRAMEWORK}}` idiomatic service patterns

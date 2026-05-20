@@ -7,10 +7,10 @@
 
 ## Mission
 
-Own all event-driven patterns for the backend project — event emission,
+Own all event-driven patterns for the backend project - event emission,
 event subscription, message queue integration, webhook receivers, and
 Pub/Sub processing. This agent is responsible for how the system
-communicates asynchronously — what events are emitted, who handles them,
+communicates asynchronously - what events are emitted, who handles them,
 and how external push notifications are ingested and dispatched.
 
 This agent does not own the business logic triggered by events, database
@@ -35,7 +35,7 @@ Is the task specific enough to act on?
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -43,7 +43,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit event name or message type
   - what triggers it and what consumes it
@@ -104,7 +104,7 @@ webhook receiver?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <emitter, handler, or receiver name>
   - <what will change in payload shape or dispatch logic>
@@ -121,9 +121,9 @@ emitter, handler, and infrastructure setup:
 ```
 ## TASK BREAKDOWN PROPOSED
 This task is too large for one pass. Suggested sequence:
-  1. <subtask A — e.g. configure broker/infrastructure>
-  2. <subtask B — e.g. implement emitter>
-  3. <subtask C — e.g. implement handler and dispatch>
+  1. <subtask A - e.g. configure broker/infrastructure>
+  2. <subtask B - e.g. implement emitter>
+  3. <subtask C - e.g. implement handler and dispatch>
 Proceeding with subtask 1. Confirm to continue after each step.
 ```
 
@@ -133,38 +133,38 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every events task regardless of framework.
 
-- **Derive event patterns from resolved stack** — apply `{{FRAMEWORK}}`
+- **Derive event patterns from resolved stack** - apply `{{FRAMEWORK}}`
   idiomatic event and messaging conventions without needing explicit
   instruction per task. Examples: NestJS EventEmitter or Microservices
   with Pub/Sub transport, Django signals, Laravel events and listeners,
   Express with a message broker client.
 
-- **Ingestion and processing are separate** — a webhook receiver or
+- **Ingestion and processing are separate** - a webhook receiver or
   queue consumer ingests the raw message and immediately dispatches
   it. All processing logic lives in `agents/LOGIC.md`. Never process
   inline inside the receiver.
 
-- **Always return 200 to external push sources** — webhook receivers
+- **Always return 200 to external push sources** - webhook receivers
   and Pub/Sub endpoints must acknowledge receipt immediately and
   process asynchronously. Never block the response on processing.
 
-- **Event payloads are typed contracts** — payload shapes that cross
+- **Event payloads are typed contracts** - payload shapes that cross
   service or system boundaries belong in `CONTRACTS.md`. Never
   define them locally.
 
-- **Idempotency is required** — event handlers must be safe to run
+- **Idempotency is required** - event handlers must be safe to run
   more than once for the same event. Duplicate delivery is expected
   in any message queue system.
 
-- **Failure handling is explicit** — every handler defines its retry
+- **Failure handling is explicit** - every handler defines its retry
   behavior and dead-letter strategy. Never silently swallow errors.
 
-- **No side effects in emitters** — an event emitter emits and returns.
+- **No side effects in emitters** - an event emitter emits and returns.
   It does not process, persist, or trigger additional logic inline.
 
-- **Webhook token validation is not owned here** — token verification
+- **Webhook token validation is not owned here** - token verification
   is delegated to `agents/AUTH.md`. This agent wires the receiver
-  and dispatches — it does not implement the token check.
+  and dispatches - it does not implement the token check.
 
 <!-- @annotation
   Add project-specific event conventions here.
@@ -213,12 +213,12 @@ After each event unit:
 
 - Never process inline inside a webhook receiver or queue consumer
 - Never block the response to an external push source on processing
-- Never define event payload shapes locally — use `CONTRACTS.md`
-- Never implement webhook token validation here — delegate to AUTH.md
+- Never define event payload shapes locally - use `CONTRACTS.md`
+- Never implement webhook token validation here - delegate to AUTH.md
 - Never write handlers that are not idempotent
-- Never silently swallow handler errors — define retry and dead-letter behavior
+- Never silently swallow handler errors - define retry and dead-letter behavior
 - Never modify event logic outside the current task's stated scope
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 
@@ -242,12 +242,12 @@ An events task is complete when:
 
 - [ ] All planned emitters, receivers, and handlers exist
 - [ ] Webhook receivers and queue consumers acknowledge immediately
-      and dispatch asynchronously — no inline processing
-- [ ] All event payload types exist in `CONTRACTS.md` — none defined locally
+      and dispatch asynchronously - no inline processing
+- [ ] All event payload types exist in `CONTRACTS.md` - none defined locally
 - [ ] All handlers are idempotent for duplicate delivery
 - [ ] Failure handling and retry/dead-letter behavior are defined
 - [ ] No business logic exists inside emitters or receivers
-- [ ] Webhook token validation is delegated to AUTH.md — not implemented here
+- [ ] Webhook token validation is delegated to AUTH.md - not implemented here
 - [ ] No event logic outside task scope is affected
 - [ ] Code follows `{{FRAMEWORK}}` idiomatic event patterns
 - [ ] Pre-flight checks all passed and documented if any flags were raised

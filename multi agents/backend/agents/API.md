@@ -9,7 +9,7 @@
 
 Own all API endpoint definitions, request/response shaping, DTO design,
 input validation, and HTTP contract for the backend project. This agent
-is responsible for the surface the client communicates with — what routes
+is responsible for the surface the client communicates with - what routes
 exist, what they accept, what they return, and how errors are communicated.
 
 This agent does not own business logic, database queries, authentication
@@ -32,7 +32,7 @@ Is the task specific enough to act on?
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -40,7 +40,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit HTTP method and path
   - request body shape and response shape
@@ -91,7 +91,7 @@ Does this task produce or consume types that cross the client/backend boundary?
 - Request body shapes and response shapes are cross-boundary contracts
 - If yes → verify the relevant types exist in `CONTRACTS.md`
 - If missing → stop and emit a CONTRACTS CHANGE PROPOSAL before proceeding
-- Never define request or response types locally inside a controller —
+- Never define request or response types locally inside a controller -
   they belong in `shared/types/`
 
 ### 5. Destructive Action Check
@@ -100,7 +100,7 @@ Does this task modify or remove an existing endpoint?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <endpoint path and method>
   - <what will change in request or response shape>
@@ -117,9 +117,9 @@ definition with service implementation:
 ```
 ## TASK BREAKDOWN PROPOSED
 This task is too large for one pass. Suggested sequence:
-  1. <subtask A — e.g. define DTOs and endpoint shell>
-  2. <subtask B — e.g. wire service delegation>
-  3. <subtask C — e.g. add guards and validation>
+  1. <subtask A - e.g. define DTOs and endpoint shell>
+  2. <subtask B - e.g. wire service delegation>
+  3. <subtask C - e.g. add guards and validation>
 Proceeding with subtask 1. Confirm to continue after each step.
 ```
 
@@ -129,36 +129,36 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every API task regardless of framework.
 
-- **Derive API patterns from resolved stack** — apply `{{FRAMEWORK}}`
+- **Derive API patterns from resolved stack** - apply `{{FRAMEWORK}}`
   idiomatic controller and routing conventions without needing explicit
   instruction per task.
   Examples: NestJS controllers with decorators, Express routers,
   Django REST Framework views, Laravel route controllers.
 
-- **Controllers shape, services decide** — controllers handle request
+- **Controllers shape, services decide** - controllers handle request
   parsing, response formatting, and guard wiring only. All decisions
   and domain logic are delegated to the service layer.
 
-- **DTOs own validation** — input validation lives in the DTO or request
+- **DTOs own validation** - input validation lives in the DTO or request
   schema, not in the controller or service. Validation is declarative
   and colocated with the data shape it validates.
 
-- **Request and response types are contracts** — shapes that cross the
+- **Request and response types are contracts** - shapes that cross the
   client/backend boundary belong in `CONTRACTS.md` and `shared/types/`.
   Never define them locally in a controller file.
 
-- **Consistent error responses** — all error responses follow the same
+- **Consistent error responses** - all error responses follow the same
   shape across every endpoint. Never return ad-hoc error objects.
   Define the error response shape in `CONTRACTS.md`.
 
-- **Every endpoint declares its guard** — no endpoint is implicitly
+- **Every endpoint declares its guard** - no endpoint is implicitly
   public or protected. Access control is explicit on every route.
 
-- **No business logic in controllers** — if a controller is making
+- **No business logic in controllers** - if a controller is making
   domain decisions beyond routing and shaping, that logic belongs
   in `agents/LOGIC.md` territory.
 
-- **HTTP semantics are correct** — use the correct HTTP method and
+- **HTTP semantics are correct** - use the correct HTTP method and
   status code for every operation. Never return 200 for an error,
   never use GET for a mutation.
 
@@ -193,7 +193,7 @@ List every endpoint being added or modified:
 - Guard or access control
 - Service delegation target
 
-Confirm the plan before proceeding — endpoint contracts are
+Confirm the plan before proceeding - endpoint contracts are
 cross-boundary and harder to change once the client consumes them.
 
 **Execute**
@@ -213,12 +213,12 @@ After each endpoint:
 ## Safety Rules
 
 - Never implement business or domain logic inside a controller
-- Never define request or response types locally — use `CONTRACTS.md`
+- Never define request or response types locally - use `CONTRACTS.md`
 - Never leave an endpoint without explicit access control declaration
 - Never return incorrect HTTP status codes
-- Never return ad-hoc error shapes — use the consistent error contract
+- Never return ad-hoc error shapes - use the consistent error contract
 - Never modify endpoints outside the current task's stated scope
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 
@@ -241,8 +241,8 @@ After each endpoint:
 An API task is complete when:
 
 - [ ] All planned endpoints exist with correct HTTP methods and paths
-- [ ] DTOs own all input validation — no validation in controllers or services
-- [ ] All request and response types exist in `CONTRACTS.md` — none local
+- [ ] DTOs own all input validation - no validation in controllers or services
+- [ ] All request and response types exist in `CONTRACTS.md` - none local
 - [ ] Every endpoint explicitly declares its access control
 - [ ] All error responses follow the consistent error contract
 - [ ] HTTP status codes are semantically correct

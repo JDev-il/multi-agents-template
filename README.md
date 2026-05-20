@@ -4,7 +4,7 @@ A generic, reusable project scaffold for building full-stack applications
 using Claude Code with Git Worktrees and structured agent coordination.
 
 Designed to support simultaneous, isolated agent workflows across frontend
-and backend — without agents interfering with each other.
+and backend - without agents interfering with each other.
 
 ---
 
@@ -12,12 +12,12 @@ and backend — without agents interfering with each other.
 
 This template gives you a two-prompt development workflow:
 
-**Prompt 1 — Instantiate**
+**Prompt 1 - Instantiate**
 Point Claude Code at the root `CLAUDE.md`. Fill in the `@config` block.
 The agent audits the config, resolves the stack, and establishes the
 project foundation.
 
-**Prompt 2+ — Execute**
+**Prompt 2+ - Execute**
 Reference a specific agent file in your prompt. The agent loads its
 full behavioral spec and executes the task in isolation.
 
@@ -119,7 +119,7 @@ Fill in the `@config` block at the top of each file:
 # @config LANGUAGE      : TypeScript
 ```
 
-Leave optional configs blank — the agent will propose values when needed.
+Leave optional configs blank - the agent will propose values when needed.
 
 ### 3. Fill in Project Identity
 
@@ -182,19 +182,19 @@ for the job applications resource.
 
 ## Key Rules
 
-1. **Agents write only within their domain** — a backend agent never
+1. **Agents write only within their domain** - a backend agent never
    touches `client/`, and vice versa.
 
-2. **CONTRACTS.md is read-only for agents** — changes require a proposal
+2. **CONTRACTS.md is read-only for agents** - changes require a proposal
    and explicit human approval.
 
-3. **One branch per agent** — never reuse a worktree branch across
+3. **One branch per agent** - never reuse a worktree branch across
    different agents or tasks.
 
-4. **Config audit runs first** — no agent writes any code until the
+4. **Config audit runs first** - no agent writes any code until the
    `@config` block in the project `CLAUDE.md` is complete.
 
-5. **Prompts stay thin** — the agent file carries all behavioral detail.
+5. **Prompts stay thin** - the agent file carries all behavioral detail.
    Your prompt provides the task only.
 
 ---
@@ -213,7 +213,7 @@ and add it to the root `CLAUDE.md` repo tree.
 
 **Adding project-specific agents:**
 Create them alongside the generic agents in the relevant `agents/`
-folder. Use the same template. Fill in fully — no annotation markers
+folder. Use the same template. Fill in fully - no annotation markers
 needed for project-specific files.
 
 <!-- @annotation

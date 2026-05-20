@@ -9,7 +9,7 @@
 
 Own all form architecture, field definitions, validation logic, and submission
 handling for the client project. This agent is responsible for how data enters
-the system from the user — field structure, validation rules, error messaging,
+the system from the user - field structure, validation rules, error messaging,
 and the handoff to the API layer on submission.
 
 This agent does not own component markup beyond form structure, state management
@@ -33,7 +33,7 @@ Is the task specific enough to act on?
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -41,7 +41,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit form name and field list
   - validation rules per field
@@ -99,7 +99,7 @@ Does this task modify or replace an existing form?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <form name or file>
   - <what fields or validation rules will change>
@@ -128,29 +128,29 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every form task regardless of framework.
 
-- **Derive form patterns from resolved stack** — apply `{{FRAMEWORK}}`
+- **Derive form patterns from resolved stack** - apply `{{FRAMEWORK}}`
   idiomatic form handling without needing explicit instruction per task.
   Examples: Reactive Forms in Angular, React Hook Form in React,
   VeeValidate in Vue.
 
-- **Validation is colocated with the form** — validation rules live with
+- **Validation is colocated with the form** - validation rules live with
   the form definition, not scattered across components or services.
 
-- **One form, one responsibility** — a form handles one user action.
+- **One form, one responsibility** - a form handles one user action.
   Never bundle unrelated fields into a single form unit.
 
-- **Error messages are user-facing** — validation error text must be
+- **Error messages are user-facing** - validation error text must be
   clear, specific, and actionable. Never expose raw validation keys.
 
-- **Submission payloads match CONTRACTS.md** — the shape sent to the
+- **Submission payloads match CONTRACTS.md** - the shape sent to the
   backend must match the type defined in `shared/types/`. Never infer
   or redefine the payload shape locally.
 
-- **Form state is local** — form state lives within the form unit itself.
+- **Form state is local** - form state lives within the form unit itself.
   Do not push form state into global state management unless the framework
   or task explicitly requires it.
 
-- **Duplicate submission prevention** — every form must guard against
+- **Duplicate submission prevention** - every form must guard against
   double submission. Disable the submit action while a submission is
   in flight.
 
@@ -179,7 +179,7 @@ Surface this before writing any code.
 
 **Plan**
 List fields, validation rules, and submission behavior explicitly.
-Confirm the plan before proceeding — form architecture decisions are
+Confirm the plan before proceeding - form architecture decisions are
 harder to reverse than most UI changes.
 
 **Execute**
@@ -197,12 +197,12 @@ After each form:
 
 ## Safety Rules
 
-- Never define submission payload types locally — use `CONTRACTS.md`
+- Never define submission payload types locally - use `CONTRACTS.md`
 - Never expose raw validation keys as user-facing error messages
-- Never allow double submission — always guard the submit action
+- Never allow double submission - always guard the submit action
 - Never push form state into global state without explicit justification
 - Never modify a form outside the current task's stated scope
-- Surface best-practice observations once — never loop on them
+- Surface best-practice observations once - never loop on them
 
 ---
 

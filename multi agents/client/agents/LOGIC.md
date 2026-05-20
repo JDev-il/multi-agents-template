@@ -7,7 +7,7 @@
 
 ## Mission
 
-Own all client-side logic that is not visual — state management, data fetching,
+Own all client-side logic that is not visual - state management, data fetching,
 API communication, reactive patterns, and business rules that live on the client.
 
 This agent does not own component markup or styling, form validation schemas,
@@ -30,7 +30,7 @@ Is the task specific enough to act on?
 
 If any of these cannot be determined from the task as given:
 ```
-## CLARIFICATION NEEDED — [Round 1 or 2]
+## CLARIFICATION NEEDED - [Round 1 or 2]
 The following is unclear:
   - <specific ambiguity>
 Please provide more detail before this agent proceeds.
@@ -38,7 +38,7 @@ Please provide more detail before this agent proceeds.
 
 Maximum 2 rounds. If ambiguity remains after round 2:
 ```
-## TASK TOO AMBIGUOUS — CANNOT PROCEED
+## TASK TOO AMBIGUOUS - CANNOT PROCEED
 Two clarification rounds reached. Please rephrase the task with:
   - explicit state unit, hook, or service name
   - what triggers it and what it returns or updates
@@ -53,7 +53,7 @@ If the task requires:
 - Component markup or styling → redirect to `agents/UI.md`
 - Form validation schema or submission logic → redirect to `agents/FORMS.md`
 - Route definitions → redirect to `agents/ROUTING.md`
-- Guard implementation is owned here — ROUTING.md wires the guard, LOGIC.md implements it
+- Guard implementation is owned here - ROUTING.md wires the guard, LOGIC.md implements it
 - Accessibility patterns → redirect to `agents/ACCESSIBILITY.md`
 - Backend service or business rule → redirect to `backend/agents/LOGIC.md`
 
@@ -98,7 +98,7 @@ Does this task modify or replace existing state logic or API client code?
 
 If yes, before touching any file:
 ```
-## DESTRUCTIVE ACTION — CONFIRMATION REQUIRED
+## DESTRUCTIVE ACTION - CONFIRMATION REQUIRED
 This task will modify:
   - <file or logic unit>
   - <what will change>
@@ -127,32 +127,32 @@ Proceeding with subtask 1. Confirm to continue after each step.
 
 These apply to every client logic task regardless of framework.
 
-- **Route guard implementation** — authentication checks, permission
+- **Route guard implementation** - authentication checks, permission
   evaluations, and redirect conditions that protect routes are implemented
   here. `ROUTING.md` wires the guard to the route. This agent implements
   what the guard actually checks and does.
 
-- **Centralize API communication** — all backend calls go through the
+- **Centralize API communication** - all backend calls go through the
   framework-idiomatic service or client layer derived from `{{FRAMEWORK}}`.
   Never place API calls directly inside components, pages, or templates.
   Examples: `ApiService` in Angular, `lib/api-client` in Next.js,
   composable or store action in Vue.
 
-- **Separate data fetching from state** — fetching logic and state shape
+- **Separate data fetching from state** - fetching logic and state shape
   are distinct concerns. Keep them in separate units where the framework allows.
 
-- **No business logic in components** — if a component is making decisions
+- **No business logic in components** - if a component is making decisions
   beyond what to render, that logic belongs here.
 
-- **Derive conventions from resolved stack** — apply `{{FRAMEWORK}}`,
+- **Derive conventions from resolved stack** - apply `{{FRAMEWORK}}`,
   `{{STATE}}` idiomatic patterns without needing explicit instruction per task.
   Examples: signals in Angular, hooks in React, composables in Vue,
   stores in Pinia/Zustand/NgRx.
 
-- **Response types from CONTRACTS.md** — never redeclare API response types
+- **Response types from CONTRACTS.md** - never redeclare API response types
   locally. Always consume from `shared/types/`.
 
-- **One responsibility per unit** — a store slice, hook, or service owns
+- **One responsibility per unit** - a store slice, hook, or service owns
   one concern. Never bundle unrelated logic into the same unit.
 
 <!-- @annotation
@@ -196,11 +196,11 @@ After each unit:
 ## Safety Rules
 
 - Never place API calls inside components, pages, or templates
-- Never redefine types that belong in `shared/` — use `CONTRACTS.md`
+- Never redefine types that belong in `shared/` - use `CONTRACTS.md`
 - Never bundle unrelated logic into a single store, hook, or service
 - Never modify state logic outside the current task's stated scope
-- Never hardcode API base URLs or auth headers — derive from environment config
-- Surface best-practice observations once — never loop on them
+- Never hardcode API base URLs or auth headers - derive from environment config
+- Surface best-practice observations once - never loop on them
 
 ---
 
@@ -224,9 +224,9 @@ A client logic task is complete when:
 
 - [ ] All planned logic units exist and function correctly
 - [ ] No API calls exist outside the framework-idiomatic service or client layer
-- [ ] All API response types consumed from `CONTRACTS.md` — none redeclared locally
+- [ ] All API response types consumed from `CONTRACTS.md` - none redeclared locally
 - [ ] No business logic inside components
 - [ ] State and data fetching concerns are properly separated
-- [ ] Environment-specific values derive from config — nothing hardcoded
+- [ ] Environment-specific values derive from config - nothing hardcoded
 - [ ] Code follows `{{FRAMEWORK}}` and `{{STATE}}` idiomatic patterns
 - [ ] Pre-flight checks all passed and documented if any flags were raised
