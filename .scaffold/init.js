@@ -303,7 +303,7 @@ const main = async () => {
 
   console.log(`  Fetching templates from multi-agents-core...`);
   try {
-    execSync(`git clone ${CORE_REPO} ${CORE_DIR}`, { stdio: 'pipe' });
+    execSync(`git clone ${CORE_REPO} "${CORE_DIR}"`, { stdio: 'pipe' });
     console.log(`  ${green('✓')} Templates fetched`);
   } catch (err) {
     console.log(`  ${red('✗')} Failed to fetch templates. Check your internet connection.`);
@@ -338,7 +338,7 @@ const main = async () => {
 
   // ── Clean up cloned core ──────────────────────────────────────────────────────
 
-  execSync(`rm -rf ${CORE_DIR}`);
+  execSync(`rm -rf "${CORE_DIR}"`);
   console.log(`  ${green('✓')} Temporary files cleaned up`);
 
   // ── Write @config values into generated files ────────────────────────────────
