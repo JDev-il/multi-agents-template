@@ -8,6 +8,17 @@ and backend - without agents interfering with each other.
 
 ---
 
+> [!IMPORTANT]
+> **New to this template? Start here - one command sets everything up:**
+> ```bash
+> node .scaffold/init.js
+> ```
+> The initializer prompts you for your project details, writes all config files,
+> and sets up your worktree environment automatically.
+> **Do not manually edit any `CLAUDE.md` config blocks before running this.**
+
+---
+
 ## What This Is
 
 This template gives you a two-prompt development workflow:
@@ -101,48 +112,54 @@ Changes go through an explicit proposal and human approval flow.
 
 ## Getting Started
 
-### 1. Clone or fork this template
+### 1. Use this template
+
+Click **"Use this template"** on GitHub to create your own repo from this scaffold.
+Then clone it locally:
 
 ```bash
-git clone <this-repo> my-project
-cd my-project
+git clone https://github.com/<your-username>/<your-repo>.git
+cd <your-repo>
 ```
 
-### 2. Fill in the config blocks
+---
 
-Open `backend/CLAUDE.md` and `client/CLAUDE.md`.
-Fill in the `@config` block at the top of each file:
+> [!IMPORTANT]
+> **Run the initializer before doing anything else.**
+> It configures your project, fills in all `@config` blocks, and sets up the worktrees folder automatically.
 
+### 2. Run the initializer
+
+```bash
+node .scaffold/init.js
 ```
-# @config PROJECT_NAME  : My Project
-# @config FRAMEWORK     : NestJS
-# @config LANGUAGE      : TypeScript
-```
 
-Leave optional configs blank - the agent will propose values when needed.
+The script will prompt you for:
+- Project name
+- Client framework and language
+- Optional UI library, state management, and styling
+- Backend framework and language (leave blank to decide later)
+
+It writes all confirmed values directly into the correct `@config` lines across all `CLAUDE.md` files. **No manual file editing needed.**
 
 ### 3. Fill in Project Identity
 
-In each `CLAUDE.md` and this `README.md`, replace the
-`<!-- @annotation -->` blocks with your project's actual context.
+In each `CLAUDE.md`, replace the `<!-- @annotation -->` blocks with a
+brief description of your project. This gives agents the context they
+need to understand what they're building.
 
-### 4. Set up worktrees folder
+### 4. Create your first worktree
 
 ```bash
-mkdir ../worktrees
-echo "worktrees/" >> .gitignore
+git worktree add worktrees/client-ui -b agent/client/ui
 ```
 
-### 5. Start Claude Code
+Then open Claude Code inside the created worktree folder.
 
-Open Claude Code in the root of your project.
-The root `CLAUDE.md` auto-loads immediately.
-
-### 6. Run your first task
+### 5. Run your first task
 
 ```
-Use backend/agents/API.md. Task: scaffold the initial CRUD endpoints
-for the job applications resource.
+Use agents/UI.md. Task: scaffold the initial project structure.
 ```
 
 ---
