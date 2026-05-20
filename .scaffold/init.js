@@ -3,11 +3,14 @@
 /**
  * Multi-Agent Monorepo Template - Project Initializer
  * Run with: node .scaffold/init.js
+ *
+ * Runs once. Locked after completion via .scaffold/.initialized
+ * Delete .scaffold/.initialized to re-run.
  */
 
 const readline = require('readline');
-const fs = require('fs');
-const path = require('path');
+const fs       = require('fs');
+const path     = require('path');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -28,24 +31,37 @@ const dim    = (s) => `${c.dim}${s}${c.reset}`;
 const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
 const blue   = (s) => `${c.blue}${s}${c.reset}`;
 
+// ── Lock check ────────────────────────────────────────────────────────────────
+
+const LOCK_FILE = path.join(__dirname, '.initialized');
+const ROOT      = path.join(__dirname, '..');
+
+if (fs.existsSync(LOCK_FILE)) {
+  const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
+  console.log(`\n${yellow('  This project has already been initialized.')}`);
+  console.log(dim(`  Initialized on: ${ts}`));
+  console.log(dim('  To re-run, delete .scaffold/.initialized first.\n'));
+  process.exit(0);
+}
+
 // ── Decision tree ─────────────────────────────────────────────────────────────
 
 const CLIENT_FRAMEWORKS = [
-  { label: 'Next.js',           value: 'Next.js',    language: 'TypeScript' },
-  { label: 'Angular',           value: 'Angular',    language: 'TypeScript' },
-  { label: 'Vue / Nuxt',        value: 'Nuxt',       language: 'TypeScript' },
-  { label: 'SvelteKit',         value: 'SvelteKit',  language: 'TypeScript' },
-  { label: 'Remix',             value: 'Remix',      language: 'TypeScript' },
-  { label: 'Vite + React',      value: 'Vite+React', language: 'TypeScript' },
+  { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript' },
+  { label: 'Angular',       value: 'Angular',    language: 'TypeScript' },
+  { label: 'Vue / Nuxt',    value: 'Nuxt',       language: 'TypeScript' },
+  { label: 'SvelteKit',     value: 'SvelteKit',  language: 'TypeScript' },
+  { label: 'Remix',         value: 'Remix',      language: 'TypeScript' },
+  { label: 'Vite + React',  value: 'Vite+React', language: 'TypeScript' },
 ];
 
 const BACKEND_FRAMEWORKS = [
-  { label: 'NestJS',    value: 'NestJS',   language: 'TypeScript' },
-  { label: 'Express',   value: 'Express',  language: 'TypeScript' },
-  { label: 'Fastify',   value: 'Fastify',  language: 'TypeScript' },
-  { label: 'Django',    value: 'Django',   language: 'Python'     },
-  { label: 'Laravel',   value: 'Laravel',  language: 'PHP'        },
-  { label: 'Rails',     value: 'Rails',    language: 'Ruby'       },
+  { label: 'NestJS',   value: 'NestJS',   language: 'TypeScript' },
+  { label: 'Express',  value: 'Express',  language: 'TypeScript' },
+  { label: 'Fastify',  value: 'Fastify',  language: 'TypeScript' },
+  { label: 'Django',   value: 'Django',   language: 'Python'     },
+  { label: 'Laravel',  value: 'Laravel',  language: 'PHP'        },
+  { label: 'Rails',    value: 'Rails',    language: 'Ruby'       },
 ];
 
 const STATE_OPTIONS = {
@@ -92,6 +108,13 @@ const AUTH_OPTIONS = {
   'Rails':    ['Devise', 'JWT', 'OAuth2'],
 };
 
+const IDE_OPTIONS = [
+  { label: 'VS Code',                           value: 'vscode',   cmd: 'code'      },
+  { label: 'Cursor',                            value: 'cursor',   cmd: 'cursor'    },
+  { label: 'WebStorm / IntelliJ',               value: 'webstorm', cmd: 'webstorm'  },
+  { label: 'Other (manual - path will be shown)', value: 'other',  cmd: null        },
+];
+
 // ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
@@ -118,17 +141,19 @@ const selectRequired = async (prompt, items) => {
     showList(items);
     const input = await ask(`\n  ${bold('Select')} ${dim(`(1-${items.length})`)}: `);
     const index = parseInt(input) - 1;
-    if (index >= 0 && index < items.length) return items[index];
+    if (!isNaN(index) && index >= 0 && index < items.length) return items[index];
     console.log(yellow(`  Please enter a number between 1 and ${items.length}.`));
   }
 };
 
 const selectOptional = async (prompt, items) => {
+  if (!items || items.length === 0) return null;
   console.log(`\n${bold(prompt)}`);
   showList(items, true);
   const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
+  if (input === '0' || input === '') return null;
   const index = parseInt(input) - 1;
-  if (input === '0' || index < 0 || index >= items.length) return null;
+  if (isNaN(index) || index < 0 || index >= items.length) return null;
   return typeof items[index] === 'string' ? items[index] : items[index].value;
 };
 
@@ -136,16 +161,22 @@ const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
 
 // ── Config writer ─────────────────────────────────────────────────────────────
 
-const ROOT = path.join(__dirname, '..');
-
 const writeConfig = (filePath, configs) => {
   if (!fs.existsSync(filePath)) return;
   let content = fs.readFileSync(filePath, 'utf8');
+
   for (const [key, value] of Object.entries(configs)) {
     if (!value) continue;
     const regex = new RegExp(`(# @config ${key}\\s*:)([^\\n]*)`, 'g');
     content = content.replace(regex, `$1 ${value}`);
   }
+
+  for (const [key, value] of Object.entries(configs)) {
+    if (!value) continue;
+    const token = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+    content = content.replace(token, value);
+  }
+
   fs.writeFileSync(filePath, content, 'utf8');
 };
 
@@ -175,7 +206,7 @@ const main = async () => {
   separator();
 
   console.log(`\n${bold('Let\'s configure your project.')}`);
-  console.log(dim('  Required fields must be selected. Optional fields can be skipped.\n'));
+  console.log(dim('  Required fields must be selected. Optional fields can be skipped (press 0 or Enter).\n'));
   console.log(dim('  Skipped fields will be resolved by the agent when first needed.\n'));
 
   // ── Project name ────────────────────────────────────────────────────────────
@@ -183,8 +214,19 @@ const main = async () => {
   let projectName = '';
   while (!projectName) {
     projectName = await ask(`${bold('* Project name')}: `);
-    if (!projectName) console.log(yellow('  Project name is required.'));
+    if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
   }
+
+  separator();
+
+  // ── IDE ─────────────────────────────────────────────────────────────────────
+
+  console.log(`\n${bold(blue('IDE configuration'))}`);
+  console.log(dim('  This is used to auto-open your IDE when launching a new task.\n'));
+  console.log(dim('  Note for WebStorm/IntelliJ users: requires shell script enabled'));
+  console.log(dim('  via Tools -> Create Command-line Launcher\n'));
+
+  const ideChoice = await selectRequired('* Which IDE are you using?', IDE_OPTIONS);
 
   separator();
 
@@ -192,11 +234,11 @@ const main = async () => {
 
   console.log(`\n${bold(blue('Client configuration'))}`);
 
-  const clientFw     = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
-  const clientLang   = clientFw.language; // auto-derived
-  const clientState  = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
-  const clientUi     = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
-  const clientStyle  = await selectOptional('Styling:', STYLING_OPTIONS);
+  const clientFw    = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
+  const clientLang  = clientFw.language;
+  const clientState = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
+  const clientUi    = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
+  const clientStyle = await selectOptional('Styling:', STYLING_OPTIONS);
 
   separator();
 
@@ -205,8 +247,18 @@ const main = async () => {
   console.log(`\n${bold(blue('Backend configuration'))}`);
   console.log(dim('  You can skip the backend framework and decide later.\n'));
 
-  const backendFw   = await selectOptional('Backend framework:', BACKEND_FRAMEWORKS);
-  const backendLang = backendFw ? BACKEND_FRAMEWORKS.find(f => f.value === backendFw)?.language : null;
+  const backendFwObj = await (async () => {
+    console.log(`\n${bold('Backend framework:')}`);
+    showList(BACKEND_FRAMEWORKS, true);
+    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
+    if (input === '0' || input === '') return null;
+    const index = parseInt(input) - 1;
+    if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
+    return BACKEND_FRAMEWORKS[index];
+  })();
+
+  const backendFw   = backendFwObj ? backendFwObj.value    : null;
+  const backendLang = backendFwObj ? backendFwObj.language : null;
   const backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
   const backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
 
@@ -216,6 +268,7 @@ const main = async () => {
 
   console.log(`\n${bold('Review your configuration:')}\n`);
   summaryLine('Project',           projectName);
+  summaryLine('IDE',               ideChoice.label);
   summaryLine('Client framework',  clientFw.value);
   summaryLine('Client language',   clientLang);
   summaryLine('State management',  clientState);
@@ -235,13 +288,14 @@ const main = async () => {
     return;
   }
 
-  // ── Write ───────────────────────────────────────────────────────────────────
+  // ── Write configs ────────────────────────────────────────────────────────────
 
   separator();
   console.log(`\n${bold('Writing configuration...')}\n`);
 
   writeConfig(path.join(ROOT, 'CLAUDE.md'), {
     PROJECT_NAME: projectName,
+    PROJECT_ROOT: projectName,
   });
   console.log(`  ${green('✓')} CLAUDE.md`);
 
@@ -267,59 +321,52 @@ const main = async () => {
   ensureGitignore('worktrees/');
   console.log(`  ${green('✓')} worktrees/ added to .gitignore`);
 
-  // ── Next steps ───────────────────────────────────────────────────────────────
+  // ── Write .config.json ───────────────────────────────────────────────────────
+
+  const config = {
+    projectName,
+    ide: {
+      value: ideChoice.value,
+      label: ideChoice.label,
+      cmd:   ideChoice.cmd,
+    },
+    client: {
+      framework: clientFw.value,
+      language:  clientLang,
+      state:     clientState,
+      uiLibrary: clientUi,
+      styling:   clientStyle,
+    },
+    backend: {
+      framework: backendFw,
+      language:  backendLang,
+      orm:       backendOrm,
+      auth:      backendAuth,
+    },
+  };
+
+  fs.writeFileSync(
+    path.join(__dirname, '.config.json'),
+    JSON.stringify(config, null, 2),
+    'utf8'
+  );
+  console.log(`  ${green('✓')} .scaffold/.config.json`);
+
+  // ── Lock ─────────────────────────────────────────────────────────────────────
+
+  fs.writeFileSync(LOCK_FILE, new Date().toISOString());
+  console.log(`  ${green('✓')} Initialization locked (.scaffold/.initialized)`);
+
+  // ── Next steps ────────────────────────────────────────────────────────────────
 
   separator();
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
   console.log(`  ${bold('What to do next:')}\n`);
-
-  // Step 1 - always shown
-  console.log(`  ${bold('1.')} Create your first client worktree:`);
-  console.log(`     ${cyan('git worktree add worktrees/client-ui -b agent/client/ui')}\n`);
-
-  // Step 2 - always shown
-  console.log(`  ${bold('2.')} Open Claude Code inside ${cyan('worktrees/client-ui/')}\n`);
-
-  // Step 3 - context-aware first task
-  const styleHint  = clientStyle  ? ` with ${clientStyle} configured`  : '';
-  const stateHint  = clientState  ? ` and ${clientState} for state`     : '';
-  const uiHint     = clientUi     ? ` using ${clientUi}`                : '';
-  const taskHint   = `scaffold the initial ${clientFw.value} project structure${styleHint}${uiHint}${stateHint}.`;
-  console.log(`  ${bold('3.')} Run your first client task:`);
-  console.log(`     ${cyan(`Use agents/UI.md. Task: ${taskHint}`)}\n`);
-
-  // Step 4 - backend worktree (always shown)
-  console.log(`  ${bold('4.')} When ready to start backend work:`);
-  console.log(`     ${cyan('git worktree add worktrees/backend-api -b agent/backend/api')}`);
-  console.log(`     Then open Claude Code in that folder.\n`);
-
-  // Step 5 - backend context-aware
-  if (!backendFw) {
-    console.log(`  ${bold('5.')} ${yellow('Backend framework is not set.')}`);
-    console.log(`     The agent will propose options when you start your first backend task.`);
-    console.log(`     Reference: ${cyan('Use agents/API.md. Task: <your task here.')}\n`);
-  } else {
-    console.log(`  ${bold('5.')} Run your first backend task:`);
-    const ormHint  = backendOrm  ? ` with ${backendOrm}`  : '';
-    const authHint = backendAuth ? ` and ${backendAuth} for auth` : '';
-    console.log(`     ${cyan(`Use agents/API.md. Task: scaffold the initial ${backendFw}${ormHint}${authHint} project structure.`)}\n`);
-  }
-
-  // Skipped fields reminder
-  const skipped = [];
-  if (!clientState)  skipped.push('State management');
-  if (!clientUi)     skipped.push('UI library');
-  if (!clientStyle)  skipped.push('Styling');
-  if (!backendFw)    skipped.push('Backend framework');
-  if (!backendOrm)   skipped.push('ORM');
-  if (!backendAuth)  skipped.push('Auth strategy');
-
-  if (skipped.length > 0) {
-    console.log(`  ${dim('The following were skipped and will be resolved by the agent when needed:')}`);
-    skipped.forEach(s => console.log(`  ${dim(`- ${s}`)}`));
-    console.log('');
-  }
-
+  console.log(`  ${bold('1.')} Launch your first task:`);
+  console.log(`     ${cyan('node .workflow/launch.js')}\n`);
+  console.log(`  ${bold('2.')} Follow the prompts to select scope, agent, and task`);
+  console.log(`     The launcher will create the worktree, open your IDE,`);
+  console.log(`     and generate the exact Claude Code prompt for you.\n`);
   separator();
   console.log('');
 
