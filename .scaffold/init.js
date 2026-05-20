@@ -11,6 +11,7 @@
 const readline = require('readline');
 const fs       = require('fs');
 const path     = require('path');
+const { execSync } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ const c = {
   blue:   '\x1b[34m',
   yellow: '\x1b[33m',
   cyan:   '\x1b[36m',
+  red:    '\x1b[31m',
 };
 
 const bold   = (s) => `${c.bold}${s}${c.reset}`;
@@ -30,6 +32,7 @@ const yellow = (s) => `${c.yellow}${s}${c.reset}`;
 const dim    = (s) => `${c.dim}${s}${c.reset}`;
 const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
 const blue   = (s) => `${c.blue}${s}${c.reset}`;
+const red    = (s) => `${c.red}${s}${c.reset}`;
 
 // ── Lock check ────────────────────────────────────────────────────────────────
 
@@ -293,6 +296,53 @@ const main = async () => {
   separator();
   console.log(`\n${bold('Writing configuration...')}\n`);
 
+  // ── Clone multi-agents-core ─────────────────────────────────────────────────
+
+  const CORE_REPO  = 'https://github.com/JDev-il/multi-agents-core.git';
+  const CORE_DIR   = path.join(ROOT, '.agents-core');
+
+  console.log(`  Fetching templates from multi-agents-core...`);
+  try {
+    execSync(`git clone ${CORE_REPO} ${CORE_DIR}`, { stdio: 'pipe' });
+    console.log(`  ${green('✓')} Templates fetched`);
+  } catch (err) {
+    console.log(`  ${red('✗')} Failed to fetch templates. Check your internet connection.`);
+    rl.close();
+    process.exit(1);
+  }
+
+  const TEMPLATES = path.join(CORE_DIR, 'templates');
+
+  // ── Copy templates into project ───────────────────────────────────────────────
+
+  const copyDir = (src, dest) => {
+    if (!fs.existsSync(src)) return;
+    fs.mkdirSync(dest, { recursive: true });
+    fs.readdirSync(src).forEach(file => {
+      const srcFile  = path.join(src, file);
+      const destFile = path.join(dest, file);
+      if (fs.statSync(srcFile).isDirectory()) {
+        copyDir(srcFile, destFile);
+      } else {
+        fs.copyFileSync(srcFile, destFile);
+      }
+    });
+  };
+
+  copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
+  copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
+  copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
+  fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),     path.join(ROOT, 'CLAUDE.md'));
+  fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'),  path.join(ROOT, 'CONTRACTS.md'));
+  console.log(`  ${green('✓')} Templates copied into project`);
+
+  // ── Clean up cloned core ──────────────────────────────────────────────────────
+
+  execSync(`rm -rf ${CORE_DIR}`);
+  console.log(`  ${green('✓')} Temporary files cleaned up`);
+
+  // ── Write @config values into generated files ────────────────────────────────
+
   writeConfig(path.join(ROOT, 'CLAUDE.md'), {
     PROJECT_NAME: projectName,
     PROJECT_ROOT: projectName,
@@ -319,6 +369,7 @@ const main = async () => {
   console.log(`  ${green('✓')} backend/CLAUDE.md`);
 
   ensureGitignore('worktrees/');
+  ensureGitignore('.agents-core/');
   console.log(`  ${green('✓')} worktrees/ added to .gitignore`);
 
   // ── Write .config.json ───────────────────────────────────────────────────────
