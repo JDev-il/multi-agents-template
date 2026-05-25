@@ -8,10 +8,10 @@
  * Delete .scaffold/.initialized to re-run.
  */
 
-const readline = require('readline');
-const fs       = require('fs');
-const path     = require('path');
-const { execSync } = require('child_process');
+const readline  = require('readline');
+const fs        = require('fs');
+const path      = require('path');
+const { execSync, spawn } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -111,13 +111,6 @@ const AUTH_OPTIONS = {
   'Rails':    ['Devise', 'JWT', 'OAuth2'],
 };
 
-const IDE_OPTIONS = [
-  { label: 'VS Code',                           value: 'vscode',   cmd: 'code'      },
-  { label: 'Cursor',                            value: 'cursor',   cmd: 'cursor'    },
-  { label: 'WebStorm / IntelliJ',               value: 'webstorm', cmd: 'webstorm'  },
-  { label: 'Other (manual - path will be shown)', value: 'other',  cmd: null        },
-];
-
 // ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
@@ -189,8 +182,6 @@ const ensureGitignore = (entry) => {
   if (!content.includes(entry)) fs.appendFileSync(p, `\n${entry}\n`);
 };
 
-// ── Summary line ──────────────────────────────────────────────────────────────
-
 const summaryLine = (label, value) => {
   const padded = label.padEnd(20);
   if (!value) {
@@ -198,6 +189,22 @@ const summaryLine = (label, value) => {
   } else {
     console.log(`  ${dim(padded)}: ${green(value)}`);
   }
+};
+
+// ── Copy directory ────────────────────────────────────────────────────────────
+
+const copyDir = (src, dest) => {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  fs.readdirSync(src).forEach(file => {
+    const srcFile  = path.join(src, file);
+    const destFile = path.join(dest, file);
+    if (fs.statSync(srcFile).isDirectory()) {
+      copyDir(srcFile, destFile);
+    } else {
+      fs.copyFileSync(srcFile, destFile);
+    }
+  });
 };
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -219,17 +226,6 @@ const main = async () => {
     projectName = await ask(`${bold('* Project name')}: `);
     if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
   }
-
-  separator();
-
-  // ── IDE ─────────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('IDE configuration'))}`);
-  console.log(dim('  This is used to auto-open your IDE when launching a new task.\n'));
-  console.log(dim('  Note for WebStorm/IntelliJ users: requires shell script enabled'));
-  console.log(dim('  via Tools -> Create Command-line Launcher\n'));
-
-  const ideChoice = await selectRequired('* Which IDE are you using?', IDE_OPTIONS);
 
   separator();
 
@@ -271,7 +267,6 @@ const main = async () => {
 
   console.log(`\n${bold('Review your configuration:')}\n`);
   summaryLine('Project',           projectName);
-  summaryLine('IDE',               ideChoice.label);
   summaryLine('Client framework',  clientFw.value);
   summaryLine('Client language',   clientLang);
   summaryLine('State management',  clientState);
@@ -294,16 +289,16 @@ const main = async () => {
   // ── Write configs ────────────────────────────────────────────────────────────
 
   separator();
-  console.log(`\n${bold('Writing configuration...')}\n`);
+  console.log(`\n${bold('Setting up your project...')}\n`);
 
-  // ── Clone multi-agents-core ─────────────────────────────────────────────────
+  // ── Clone multi-agents-core ──────────────────────────────────────────────────
 
-  const CORE_REPO  = 'https://github.com/JDev-il/multi-agents-core.git';
-  const CORE_DIR   = path.join(ROOT, '.agents-core');
+  const CORE_REPO = 'https://github.com/JDev-il/multi-agents-core.git';
+  const CORE_DIR  = path.join(ROOT, '.agents-core');
 
-  console.log(`  Fetching templates from multi-agents-core...`);
+  console.log(`  Fetching templates...`);
   try {
-    execSync(`git clone ${CORE_REPO} "${CORE_DIR}"`, { stdio: 'pipe' });
+    execSync(`git clone "${CORE_REPO}" "${CORE_DIR}"`, { stdio: 'pipe' });
     console.log(`  ${green('✓')} Templates fetched`);
   } catch (err) {
     console.log(`  ${red('✗')} Failed to fetch templates. Check your internet connection.`);
@@ -313,41 +308,23 @@ const main = async () => {
 
   const TEMPLATES = path.join(CORE_DIR, 'templates');
 
-  // ── Copy templates into project ───────────────────────────────────────────────
-
-  const copyDir = (src, dest) => {
-    if (!fs.existsSync(src)) return;
-    fs.mkdirSync(dest, { recursive: true });
-    fs.readdirSync(src).forEach(file => {
-      const srcFile  = path.join(src, file);
-      const destFile = path.join(dest, file);
-      if (fs.statSync(srcFile).isDirectory()) {
-        copyDir(srcFile, destFile);
-      } else {
-        fs.copyFileSync(srcFile, destFile);
-      }
-    });
-  };
-
   copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
   copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
   copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
-  fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),     path.join(ROOT, 'CLAUDE.md'));
-  fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'),  path.join(ROOT, 'CONTRACTS.md'));
-  console.log(`  ${green('✓')} Templates copied into project`);
-
-  // ── Clean up cloned core ──────────────────────────────────────────────────────
+  fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
+  fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
+  console.log(`  ${green('✓')} Templates copied`);
 
   execSync(`rm -rf "${CORE_DIR}"`);
   console.log(`  ${green('✓')} Temporary files cleaned up`);
 
-  // ── Write @config values into generated files ────────────────────────────────
+  // ── Write @config values ─────────────────────────────────────────────────────
 
   writeConfig(path.join(ROOT, 'CLAUDE.md'), {
     PROJECT_NAME: projectName,
     PROJECT_ROOT: projectName,
   });
-  console.log(`  ${green('✓')} CLAUDE.md`);
+  console.log(`  ${green('✓')} CLAUDE.md configured`);
 
   writeConfig(path.join(ROOT, 'client', 'CLAUDE.md'), {
     PROJECT_NAME: projectName,
@@ -357,7 +334,7 @@ const main = async () => {
     UI_LIBRARY:   clientUi,
     STYLING:      clientStyle,
   });
-  console.log(`  ${green('✓')} client/CLAUDE.md`);
+  console.log(`  ${green('✓')} client/CLAUDE.md configured`);
 
   writeConfig(path.join(ROOT, 'backend', 'CLAUDE.md'), {
     PROJECT_NAME: projectName,
@@ -366,21 +343,16 @@ const main = async () => {
     ORM:          backendOrm,
     AUTH:         backendAuth,
   });
-  console.log(`  ${green('✓')} backend/CLAUDE.md`);
+  console.log(`  ${green('✓')} backend/CLAUDE.md configured`);
 
   ensureGitignore('worktrees/');
   ensureGitignore('.agents-core/');
-  console.log(`  ${green('✓')} worktrees/ added to .gitignore`);
+  console.log(`  ${green('✓')} .gitignore updated`);
 
   // ── Write .config.json ───────────────────────────────────────────────────────
 
   const config = {
     projectName,
-    ide: {
-      value: ideChoice.value,
-      label: ideChoice.label,
-      cmd:   ideChoice.cmd,
-    },
     client: {
       framework: clientFw.value,
       language:  clientLang,
@@ -401,27 +373,47 @@ const main = async () => {
     JSON.stringify(config, null, 2),
     'utf8'
   );
-  console.log(`  ${green('✓')} .scaffold/.config.json`);
+  console.log(`  ${green('✓')} .scaffold/.config.json written`);
 
   // ── Lock ─────────────────────────────────────────────────────────────────────
 
   fs.writeFileSync(LOCK_FILE, new Date().toISOString());
-  console.log(`  ${green('✓')} Initialization locked (.scaffold/.initialized)`);
+  console.log(`  ${green('✓')} Initialization locked`);
 
-  // ── Next steps ────────────────────────────────────────────────────────────────
+  // ── Auto-commit ───────────────────────────────────────────────────────────────
+
+  try {
+    execSync('git add .', { cwd: ROOT, stdio: 'pipe' });
+    execSync('git commit -m "init: project configuration"', { cwd: ROOT, stdio: 'pipe' });
+    console.log(`  ${green('✓')} Project configuration committed`);
+  } catch (err) {
+    console.log(`  ${yellow('!')} Could not auto-commit. Run manually:`);
+    console.log(dim('     git add . && git commit -m "init: project configuration"'));
+  }
+
+  // ── Chain to launch.js ────────────────────────────────────────────────────────
 
   separator();
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
-  console.log(`  ${bold('What to do next:')}\n`);
-  console.log(`  ${bold('1.')} Launch your first task:`);
-  console.log(`     ${cyan('node .workflow/launch.js')}\n`);
-  console.log(`  ${bold('2.')} Follow the prompts to select scope, agent, and task`);
-  console.log(`     The launcher will create the worktree, open your IDE,`);
-  console.log(`     and generate the exact Claude Code prompt for you.\n`);
-  separator();
-  console.log('');
 
-  rl.close();
+  const launch = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n)')}: `);
+
+  if (launch.toLowerCase() === 'y') {
+    rl.close();
+    console.log('');
+    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+      stdio: 'inherit',
+      cwd: ROOT,
+    });
+    child.on('exit', (code) => process.exit(code));
+  } else {
+    console.log('');
+    console.log(`  ${bold('When ready, run:')}`);
+    console.log(`  ${cyan('node .workflow/launch.js')}\n`);
+    separator();
+    console.log('');
+    rl.close();
+  }
 };
 
 main().catch((err) => {
