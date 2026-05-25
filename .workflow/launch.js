@@ -208,15 +208,15 @@ Project : ${project}
 Agent   : ${agent}
 Branch  : ${branchName}
 
-## Claude Code Prompt
-Copy and paste this into the Claude Code chat panel:
-
-\`\`\`
+## Task
 ${prompt}
-\`\`\`
 
-> Open Claude Code in a NEW chat window.
-> Do NOT reuse a previous chat session for this task.
+## How to start
+Open a NEW Claude Code chat window and type:
+
+> Read TASK.md and execute the task.
+
+Do NOT reuse a previous chat session for this task.
 
 ---
 
@@ -336,7 +336,8 @@ const main = async () => {
   console.log(dim('     If not, open it manually at the path above.\n'));
   console.log(`  ${bold('2.')} Open a ${bold('NEW')} Claude Code chat window.`);
   console.log(dim('     Do NOT reuse a previous session.\n'));
-  console.log(`  ${bold('3.')} Copy the prompt from ${cyan('TASK.md')} and paste it into the chat.\n`);
+  console.log(`  ${bold('3.')} In the chat, type:`);
+  console.log(`     ${cyan('Read TASK.md and execute the task.')}\n`);
   console.log(`  ${bold('4.')} When the agent completes the task:`);
   console.log(dim('     Check off the Definition of Done items in TASK.md.'));
   console.log(dim('     Mark status as COMPLETED before starting the next task.\n'));
