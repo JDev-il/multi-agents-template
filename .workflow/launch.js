@@ -265,8 +265,10 @@ const main = async () => {
 
   // ── Confirm ───────────────────────────────────────────────────────────────────
 
-  const worktreeName = `${project}-${agent.toLowerCase()}`;
-  const branchName   = `agent/${project}/${agent.toLowerCase()}`;
+  const timestamp    = Date.now();
+  const sanitizedName = config.projectName.toLowerCase().replace(/\s+/g, '-');
+  const worktreeName = `${project}-${sanitizedName}-${agent.toLowerCase()}-${timestamp}`;
+  const branchName   = `agent/${project}/${agent.toLowerCase()}/${timestamp}`;
   const worktreePath = path.join(ROOT, 'worktrees', worktreeName);
 
   console.log(`\n${bold('Review:')}\n`);
