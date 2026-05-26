@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 
 /**
- * Multi-Agent Monorepo Template - Project Initializer
- * Run with: node .scaffold/init.js
+ * Multi-Agent Monorepo Template - Task Launcher
+ * Run with: node .workflow/launch.js
  *
- * Runs once. Locked after completion via .scaffold/.initialized
- * Delete .scaffold/.initialized to re-run.
+ * Creates a Git Worktree, generates coordination files,
+ * and opens your IDE automatically at the correct path.
  */
 
-const readline  = require('readline');
-const fs        = require('fs');
-const path      = require('path');
-const { execSync, spawn } = require('child_process');
+const readline     = require('readline');
+const fs           = require('fs');
+const path         = require('path');
+const { execSync } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -31,84 +31,112 @@ const green  = (s) => `${c.green}${s}${c.reset}`;
 const yellow = (s) => `${c.yellow}${s}${c.reset}`;
 const dim    = (s) => `${c.dim}${s}${c.reset}`;
 const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
-const blue   = (s) => `${c.blue}${s}${c.reset}`;
 const red    = (s) => `${c.red}${s}${c.reset}`;
 
-// ── Lock check ────────────────────────────────────────────────────────────────
+// ── Paths ─────────────────────────────────────────────────────────────────────
 
-const LOCK_FILE = path.join(__dirname, '.initialized');
-const ROOT      = path.join(__dirname, '..');
+const ROOT        = path.join(__dirname, '..');
+const CONFIG_PATH = path.join(ROOT, '.scaffold', '.config.json');
+const LOCK_PATH   = path.join(ROOT, '.scaffold', '.initialized');
 
-if (fs.existsSync(LOCK_FILE)) {
-  const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
-  console.log(`\n${yellow('  This project has already been initialized.')}`);
-  console.log(dim(`  Initialized on: ${ts}`));
-  console.log(dim('  To re-run, delete .scaffold/.initialized first.\n'));
-  process.exit(0);
+// ── Guards ────────────────────────────────────────────────────────────────────
+
+if (!fs.existsSync(LOCK_PATH)) {
+  console.log(`\n${red('  Project not initialized.')}`);
+  console.log(dim('  Run node .scaffold/init.js first.\n'));
+  process.exit(1);
 }
 
-// ── Decision tree ─────────────────────────────────────────────────────────────
+if (!fs.existsSync(CONFIG_PATH)) {
+  console.log(`\n${red('  Missing .scaffold/.config.json.')}`);
+  console.log(dim('  Run node .scaffold/init.js to regenerate.\n'));
+  process.exit(1);
+}
 
-const CLIENT_FRAMEWORKS = [
-  { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript' },
-  { label: 'Angular',       value: 'Angular',    language: 'TypeScript' },
-  { label: 'Vue / Nuxt',    value: 'Nuxt',       language: 'TypeScript' },
-  { label: 'SvelteKit',     value: 'SvelteKit',  language: 'TypeScript' },
-  { label: 'Remix',         value: 'Remix',      language: 'TypeScript' },
-  { label: 'Vite + React',  value: 'Vite+React', language: 'TypeScript' },
-];
+const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
-const BACKEND_FRAMEWORKS = [
-  { label: 'NestJS',   value: 'NestJS',   language: 'TypeScript' },
-  { label: 'Express',  value: 'Express',  language: 'TypeScript' },
-  { label: 'Fastify',  value: 'Fastify',  language: 'TypeScript' },
-  { label: 'Django',   value: 'Django',   language: 'Python'     },
-  { label: 'Laravel',  value: 'Laravel',  language: 'PHP'        },
-  { label: 'Rails',    value: 'Rails',    language: 'Ruby'       },
-];
+// ── Location guard ────────────────────────────────────────────────────────────
 
-const STATE_OPTIONS = {
-  'Next.js':    ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Vite+React': ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Remix':      ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Angular':    ['NgRx', 'Signals (built-in)', 'Akita'],
-  'Nuxt':       ['Pinia', 'Vuex'],
-  'SvelteKit':  ['Svelte stores (built-in)', 'Zustand'],
+const normalizedCwd  = path.resolve(process.cwd());
+const normalizedRoot = path.resolve(ROOT);
+
+if (normalizedCwd !== normalizedRoot) {
+  console.log(`\n${red('  Wrong location detected.')}`);
+  console.log(dim(`  You are here : ${normalizedCwd}`));
+  console.log(dim(`  Should be    : ${normalizedRoot}\n`));
+  console.log(bold('  Run this to fix it and launch:'));
+  console.log(cyan(`\n  cd "${normalizedRoot}" && node .workflow/launch.js\n`));
+  process.exit(1);
+}
+
+// ── OS & IDE detection ────────────────────────────────────────────────────────
+
+const platform = process.platform;
+
+const detectIDE = () => {
+  const ides = [
+    { cmd: 'code',     label: 'VS Code'  },
+    { cmd: 'cursor',   label: 'Cursor'   },
+    { cmd: 'webstorm', label: 'WebStorm' },
+  ];
+
+  const which = platform === 'win32' ? 'where' : 'which';
+
+  for (const ide of ides) {
+    try {
+      execSync(`${which} ${ide.cmd}`, { stdio: 'pipe' });
+      return ide;
+    } catch {
+      continue;
+    }
+  }
+  return null;
 };
 
-const UI_OPTIONS = {
-  'Next.js':    ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Vite+React': ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Remix':      ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Angular':    ['Angular Material', 'PrimeNG', 'Clarity'],
-  'Nuxt':       ['Vuetify', 'PrimeVue', 'Naive UI'],
-  'SvelteKit':  ['Skeleton', 'daisyUI', 'shadcn-svelte'],
+const openIDE = (worktreePath) => {
+  const ide = detectIDE();
+
+  try {
+    if (platform === 'darwin') {
+      if (ide) {
+        execSync(`"${ide.cmd}" --new-window "${worktreePath}"`, { stdio: 'pipe' });
+      } else {
+        execSync(`open -a "Visual Studio Code" "${worktreePath}"`, { stdio: 'pipe' });
+      }
+    } else if (platform === 'win32') {
+      const cmd = ide ? ide.cmd : 'code';
+      execSync(`start "" "${cmd}" "${worktreePath}"`, { stdio: 'pipe' });
+    } else {
+      const cmd = ide ? ide.cmd : 'code';
+      execSync(`${cmd} --new-window "${worktreePath}"`, { stdio: 'pipe' });
+    }
+    return ide ? ide.label : 'VS Code';
+  } catch {
+    return null;
+  }
 };
 
-const STYLING_OPTIONS = [
-  'Tailwind CSS',
-  'CSS Modules',
-  'Styled Components',
-  'SCSS / SASS',
-  'UnoCSS',
-];
+// ── Agent map ─────────────────────────────────────────────────────────────────
 
-const ORM_OPTIONS = {
-  'NestJS':   ['TypeORM', 'Prisma', 'MikroORM', 'Drizzle'],
-  'Express':  ['Prisma', 'TypeORM', 'Drizzle', 'Sequelize'],
-  'Fastify':  ['Prisma', 'TypeORM', 'Drizzle'],
-  'Django':   ['Django ORM (built-in)', 'SQLAlchemy'],
-  'Laravel':  ['Eloquent (built-in)'],
-  'Rails':    ['Active Record (built-in)'],
+const AGENTS = {
+  client:  ['UI', 'LOGIC', 'FORMS', 'ROUTING', 'TESTING', 'ACCESSIBILITY'],
+  backend: ['API', 'LOGIC', 'AUTH', 'DB', 'TESTING', 'EVENTS', 'JOBS'],
+  shared:  ['SECURITY'],
 };
 
-const AUTH_OPTIONS = {
-  'NestJS':   ['Passport.js', 'JWT-only', 'OAuth2', 'Auth.js'],
-  'Express':  ['Passport.js', 'JWT-only', 'OAuth2'],
-  'Fastify':  ['fastify-jwt', 'Passport.js', 'OAuth2'],
-  'Django':   ['Django Auth (built-in)', 'DRF TokenAuth', 'OAuth2'],
-  'Laravel':  ['Laravel Sanctum', 'Laravel Passport', 'JWT'],
-  'Rails':    ['Devise', 'JWT', 'OAuth2'],
+const DOD_ITEMS = {
+  UI:            ['All planned components exist and render correctly', 'No business logic inside components', 'All values derive from design tokens', 'Shared types consumed from CONTRACTS.md'],
+  LOGIC:         ['All planned logic units exist and function correctly', 'No API calls outside the service layer', 'All response types from CONTRACTS.md', 'State and data fetching concerns separated'],
+  FORMS:         ['All fields exist with correct validation rules', 'Error messages are clear and user-facing', 'Submission payload matches CONTRACTS.md', 'Double submission is prevented'],
+  ROUTING:       ['All routes resolve to correct components', 'Every protected route declares its guard', 'All routes are lazy loaded unless justified', 'Route paths are centralized'],
+  TESTING:       ['All planned test cases exist and pass', 'Happy path, edge cases, and failure states covered', 'Test data shapes from CONTRACTS.md', 'No implementation changes made'],
+  ACCESSIBILITY: ['All audit findings resolved', 'Every interactive element keyboard reachable', 'Focus managed after dynamic content changes', 'Color contrast meets WCAG 2.1 AA'],
+  API:           ['All endpoints exist with correct HTTP methods', 'DTOs own all input validation', 'All types in CONTRACTS.md', 'Every endpoint declares access control'],
+  AUTH:          ['All strategies and guards function correctly', 'No secrets in code', 'All tokens have expiry set', 'Auth failures return consistent responses'],
+  DB:            ['All entities and relationships defined', 'Migration generated and surfaced', 'Repository methods own all queries', 'No ORM auto-sync used'],
+  EVENTS:        ['All emitters and handlers exist', 'Receivers acknowledge immediately', 'All handlers are idempotent', 'Failure handling defined'],
+  JOBS:          ['All jobs exist with correct triggers', 'Schedule expressions from config', 'All jobs are idempotent', 'Failure strategy defined for every job'],
+  SECURITY:      ['All findings documented with severity', 'Every finding has a remediation proposal', 'OWASP Top 10 coverage confirmed', 'No fixes implemented directly'],
 };
 
 // ── Readline ──────────────────────────────────────────────────────────────────
@@ -121,14 +149,10 @@ const rl = readline.createInterface({
 const ask = (question) =>
   new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
 
-// ── Selection helpers ─────────────────────────────────────────────────────────
-
-const showList = (items, showSkip = false) => {
+const showList = (items) => {
   items.forEach((item, i) => {
-    const label = typeof item === 'string' ? item : item.label;
-    console.log(`  ${dim(`${i + 1}.`)} ${label}`);
+    console.log(`  ${dim(`${i + 1}.`)} ${item}`);
   });
-  if (showSkip) console.log(`  ${dim('0.')} Skip ${dim('(agent will propose when needed)')}`);
 };
 
 const selectRequired = async (prompt, items) => {
@@ -142,69 +166,78 @@ const selectRequired = async (prompt, items) => {
   }
 };
 
-const selectOptional = async (prompt, items) => {
-  if (!items || items.length === 0) return null;
-  console.log(`\n${bold(prompt)}`);
-  showList(items, true);
-  const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
-  if (input === '0' || input === '') return null;
-  const index = parseInt(input) - 1;
-  if (isNaN(index) || index < 0 || index >= items.length) return null;
-  return typeof items[index] === 'string' ? items[index] : items[index].value;
-};
-
 const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
 
-// ── Config writer ─────────────────────────────────────────────────────────────
+// ── File generators ───────────────────────────────────────────────────────────
 
-const writeConfig = (filePath, configs) => {
-  if (!fs.existsSync(filePath)) return;
-  let content = fs.readFileSync(filePath, 'utf8');
+const generateClaudeScope = ({ project, agent, branchName, worktreePath }) => {
+  return `# .claude-scope
+# Auto-generated by .workflow/launch.js
+# This file identifies the scope of this worktree.
+# Read this file at session start and verify scope before proceeding.
 
-  for (const [key, value] of Object.entries(configs)) {
-    if (!value) continue;
-    const regex = new RegExp(`(# @config ${key}\\s*:)([^\\n]*)`, 'g');
-    content = content.replace(regex, `$1 ${value}`);
-  }
+project      : ${project}
+agent        : ${agent}
+branch       : ${branchName}
+worktree     : ${worktreePath}
 
-  for (const [key, value] of Object.entries(configs)) {
-    if (!value) continue;
-    const token = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    content = content.replace(token, value);
-  }
+## Scope Verification Rule
+Before doing anything else, verify:
+1. The loaded CLAUDE.md matches the project scope above
+2. If opened at repo root instead of this worktree - hard stop:
 
-  fs.writeFileSync(filePath, content, 'utf8');
+   WRONG CONTEXT - CANNOT PROCEED
+   This worktree is scoped to: ${project}/${agent}
+   Close and reopen at: ${worktreePath}
+
+3. Read TASK.md for the current task prompt
+4. Reference the correct agent file: agents/${agent}.md
+`;
 };
 
-const ensureGitignore = (entry) => {
-  const p = path.join(ROOT, '.gitignore');
-  const content = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
-  if (!content.includes(entry)) fs.appendFileSync(p, `\n${entry}\n`);
-};
+const generateTaskMd = ({ project, agent, task, branchName }) => {
+  const dod    = (DOD_ITEMS[agent] || []).map(item => `- [ ] ${item}`).join('\n');
+  const prompt = project === 'shared'
+    ? `Use shared/agents/${agent}.md. Task: ${task}`
+    : `Use agents/${agent}.md. Task: ${task}`;
 
-const summaryLine = (label, value) => {
-  const padded = label.padEnd(20);
-  if (!value) {
-    console.log(`  ${dim(padded)}: ${yellow('(skipped - agent will propose when needed)')}`);
-  } else {
-    console.log(`  ${dim(padded)}: ${green(value)}`);
-  }
-};
+  return `# TASK - ${config.projectName}
 
-// ── Copy directory ────────────────────────────────────────────────────────────
+## Scope
+Project : ${project}
+Agent   : ${agent}
+Branch  : ${branchName}
 
-const copyDir = (src, dest) => {
-  if (!fs.existsSync(src)) return;
-  fs.mkdirSync(dest, { recursive: true });
-  fs.readdirSync(src).forEach(file => {
-    const srcFile  = path.join(src, file);
-    const destFile = path.join(dest, file);
-    if (fs.statSync(srcFile).isDirectory()) {
-      copyDir(srcFile, destFile);
-    } else {
-      fs.copyFileSync(srcFile, destFile);
-    }
-  });
+## Execution Mode
+AUTONOMOUS - Execute all subtasks without stopping for confirmation.
+Only stop if a genuinely destructive action is detected (modifying or deleting existing files).
+New file creation does not require confirmation.
+
+## Task
+${prompt}
+
+## How to start
+Open a NEW Claude Code chat window and type:
+
+> Read TASK.md and execute the task.
+
+Do NOT reuse a previous chat session for this task.
+
+---
+
+## Definition of Done
+${dod || '- [ ] Task completed as described above'}
+
+---
+
+## Status
+- [ ] NOT STARTED
+- [ ] IN PROGRESS
+- [ ] COMPLETED
+
+## Notes
+<!-- Agent writes completion notes, decisions, and open questions here -->
+`;
 };
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -212,208 +245,113 @@ const copyDir = (src, dest) => {
 const main = async () => {
   console.log('\n');
   console.log(bold(cyan('  Multi-Agent Monorepo Template')));
-  console.log(dim('  Project Initializer\n'));
+  console.log(dim(`  Task Launcher - ${config.projectName}\n`));
   separator();
 
-  console.log(`\n${bold('Let\'s configure your project.')}`);
-  console.log(dim('  Required fields must be selected. Optional fields can be skipped (press 0 or Enter).\n'));
-  console.log(dim('  Skipped fields will be resolved by the agent when first needed.\n'));
+  // ── Select scope ─────────────────────────────────────────────────────────────
 
-  // ── Project name ────────────────────────────────────────────────────────────
+  const scopeOptions = Object.keys(AGENTS);
+  const project      = await selectRequired('* Project scope:', scopeOptions);
 
-  let projectName = '';
-  while (!projectName) {
-    projectName = await ask(`${bold('* Project name')}: `);
-    if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
+  // ── Select agent ─────────────────────────────────────────────────────────────
+
+  const agentOptions = AGENTS[project];
+  const agent        = await selectRequired(`* Agent (${project}):`, agentOptions);
+
+  // ── Task description ──────────────────────────────────────────────────────────
+
+  let task = '';
+  while (!task) {
+    task = await ask(`\n${bold('* Task description')}: `);
+    if (!task) console.log(yellow('  Task description is required.'));
   }
 
   separator();
 
-  // ── Client ──────────────────────────────────────────────────────────────────
+  // ── Confirm ───────────────────────────────────────────────────────────────────
 
-  console.log(`\n${bold(blue('Client configuration'))}`);
+  const timestamp    = Date.now();
+  const sanitizedName = config.projectName.toLowerCase().replace(/\s+/g, '-');
+  const worktreeName = `${project}-${sanitizedName}-${agent.toLowerCase()}-${timestamp}`;
+  const branchName   = `agent/${project}/${agent.toLowerCase()}/${timestamp}`;
+  const worktreePath = path.join(ROOT, 'worktrees', worktreeName);
 
-  const clientFw    = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
-  const clientLang  = clientFw.language;
-  const clientState = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
-  const clientUi    = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
-  const clientStyle = await selectOptional('Styling:', STYLING_OPTIONS);
-
-  separator();
-
-  // ── Backend ─────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('Backend configuration'))}`);
-  console.log(dim('  You can skip the backend framework and decide later.\n'));
-
-  const backendFwObj = await (async () => {
-    console.log(`\n${bold('Backend framework:')}`);
-    showList(BACKEND_FRAMEWORKS, true);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
-    if (input === '0' || input === '') return null;
-    const index = parseInt(input) - 1;
-    if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
-    return BACKEND_FRAMEWORKS[index];
-  })();
-
-  const backendFw   = backendFwObj ? backendFwObj.value    : null;
-  const backendLang = backendFwObj ? backendFwObj.language : null;
-  const backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
-  const backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
-
-  separator();
-
-  // ── Summary ─────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold('Review your configuration:')}\n`);
-  summaryLine('Project',           projectName);
-  summaryLine('Client framework',  clientFw.value);
-  summaryLine('Client language',   clientLang);
-  summaryLine('State management',  clientState);
-  summaryLine('UI library',        clientUi);
-  summaryLine('Styling',           clientStyle);
-  summaryLine('Backend framework', backendFw);
-  summaryLine('Backend language',  backendLang);
-  summaryLine('ORM',               backendOrm);
-  summaryLine('Auth',              backendAuth);
-
+  console.log(`\n${bold('Review:')}\n`);
+  console.log(`  ${dim('Project')}  : ${green(project)}`);
+  console.log(`  ${dim('Agent')}    : ${green(agent)}`);
+  console.log(`  ${dim('Branch')}   : ${green(branchName)}`);
+  console.log(`  ${dim('Worktree')} : ${green(`worktrees/${worktreeName}`)}`);
+  console.log(`  ${dim('Task')}     : ${green(task)}`);
   console.log('');
-  const confirm = await ask(`${bold('Confirm and write to config files?')} ${dim('(y/n)')}: `);
 
+  const confirm = await ask(`${bold('Confirm?')} ${dim('(y/n)')}: `);
   if (confirm.toLowerCase() !== 'y') {
-    console.log(yellow('\n  Aborted. No files were changed.\n'));
+    console.log(yellow('\n  Aborted.\n'));
     rl.close();
     return;
   }
 
-  // ── Write configs ────────────────────────────────────────────────────────────
-
   separator();
-  console.log(`\n${bold('Setting up your project...')}\n`);
+  console.log(`\n${bold('Setting up workspace...')}\n`);
 
-  // ── Clone multi-agents-core ──────────────────────────────────────────────────
+  // ── Create worktree ───────────────────────────────────────────────────────────
 
-  const CORE_REPO = 'https://github.com/JDev-il/multi-agents-core.git';
-  const CORE_DIR  = path.join(ROOT, '.agents-core');
-
-  console.log(`  Fetching templates...`);
   try {
-    execSync(`git clone "${CORE_REPO}" "${CORE_DIR}"`, { stdio: 'pipe' });
-    console.log(`  ${green('✓')} Templates fetched`);
+    execSync(`git worktree add "${worktreePath}" -b ${branchName}`, {
+      cwd: ROOT,
+      stdio: 'pipe',
+    });
+    console.log(`  ${green('✓')} Worktree created: worktrees/${worktreeName}`);
   } catch (err) {
-    console.log(`  ${red('✗')} Failed to fetch templates. Check your internet connection.`);
-    rl.close();
-    process.exit(1);
+    console.log(`  ${yellow('!')} Worktree may already exist - continuing.`);
   }
 
-  const TEMPLATES = path.join(CORE_DIR, 'templates');
-
-  copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
-  copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
-  copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
-  fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
-  fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
-  console.log(`  ${green('✓')} Templates copied`);
-
-  execSync(`rm -rf "${CORE_DIR}"`);
-  console.log(`  ${green('✓')} Temporary files cleaned up`);
-
-  // ── Write @config values ─────────────────────────────────────────────────────
-
-  writeConfig(path.join(ROOT, 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    PROJECT_ROOT: projectName,
-  });
-  console.log(`  ${green('✓')} CLAUDE.md configured`);
-
-  writeConfig(path.join(ROOT, 'client', 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    FRAMEWORK:    clientFw.value,
-    LANGUAGE:     clientLang,
-    STATE:        clientState,
-    UI_LIBRARY:   clientUi,
-    STYLING:      clientStyle,
-  });
-  console.log(`  ${green('✓')} client/CLAUDE.md configured`);
-
-  writeConfig(path.join(ROOT, 'backend', 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    FRAMEWORK:    backendFw,
-    LANGUAGE:     backendLang,
-    ORM:          backendOrm,
-    AUTH:         backendAuth,
-  });
-  console.log(`  ${green('✓')} backend/CLAUDE.md configured`);
-
-  ensureGitignore('worktrees/');
-  ensureGitignore('.agents-core/');
-  console.log(`  ${green('✓')} .gitignore updated`);
-
-  // ── Write .config.json ───────────────────────────────────────────────────────
-
-  const config = {
-    projectName,
-    client: {
-      framework: clientFw.value,
-      language:  clientLang,
-      state:     clientState,
-      uiLibrary: clientUi,
-      styling:   clientStyle,
-    },
-    backend: {
-      framework: backendFw,
-      language:  backendLang,
-      orm:       backendOrm,
-      auth:      backendAuth,
-    },
-  };
+  // ── Write .claude-scope ───────────────────────────────────────────────────────
 
   fs.writeFileSync(
-    path.join(__dirname, '.config.json'),
-    JSON.stringify(config, null, 2),
+    path.join(worktreePath, '.claude-scope'),
+    generateClaudeScope({ project, agent, branchName, worktreePath }),
     'utf8'
   );
-  console.log(`  ${green('✓')} .scaffold/.config.json written`);
+  console.log(`  ${green('✓')} .claude-scope written`);
 
-  // ── Lock ─────────────────────────────────────────────────────────────────────
+  // ── Write TASK.md ─────────────────────────────────────────────────────────────
 
-  fs.writeFileSync(LOCK_FILE, new Date().toISOString());
-  console.log(`  ${green('✓')} Initialization locked`);
+  fs.writeFileSync(
+    path.join(worktreePath, 'TASK.md'),
+    generateTaskMd({ project, agent, task, branchName }),
+    'utf8'
+  );
+  console.log(`  ${green('✓')} TASK.md written`);
 
-  // ── Auto-commit ───────────────────────────────────────────────────────────────
+  // ── Open IDE ──────────────────────────────────────────────────────────────────
 
-  try {
-    execSync('git add .', { cwd: ROOT, stdio: 'pipe' });
-    execSync('git commit -m "init: project configuration"', { cwd: ROOT, stdio: 'pipe' });
-    console.log(`  ${green('✓')} Project configuration committed`);
-  } catch (err) {
-    console.log(`  ${yellow('!')} Could not auto-commit. Run manually:`);
-    console.log(dim('     git add . && git commit -m "init: project configuration"'));
+  const openedIDE = openIDE(worktreePath);
+  if (openedIDE) {
+    console.log(`  ${green('✓')} ${openedIDE} opened at worktrees/${worktreeName}`);
+  } else {
+    console.log(`  ${yellow('!')} Could not open IDE automatically.`);
+    console.log(dim(`     Open manually at: ${worktreePath}`));
   }
 
-  // ── Chain to launch.js ────────────────────────────────────────────────────────
+  // ── Next steps ────────────────────────────────────────────────────────────────
 
   separator();
-  console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
+  console.log(`\n${bold(green('  Workspace ready!'))}\n`);
+  console.log(`  ${bold('What to do next:')}\n`);
+  console.log(`  ${bold('1.')} Your IDE should be open at: ${cyan(`worktrees/${worktreeName}`)}`);
+  console.log(dim('     If not, open it manually at the path above.\n'));
+  console.log(`  ${bold('2.')} Open a ${bold('NEW')} Claude Code chat window.`);
+  console.log(dim('     Do NOT reuse a previous session.\n'));
+  console.log(`  ${bold('3.')} In the chat, type:`);
+  console.log(`     ${cyan('Read TASK.md and execute the task.')}\n`);
+  console.log(`  ${bold('4.')} When the agent completes the task:`);
+  console.log(dim('     Check off the Definition of Done items in TASK.md.'));
+  console.log(dim('     Mark status as COMPLETED before starting the next task.\n'));
+  separator();
+  console.log('');
 
-  const launch = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n)')}: `);
-
-  if (launch.toLowerCase() === 'y') {
-    rl.close();
-    console.log('');
-    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-      stdio: 'inherit',
-      cwd: ROOT,
-    });
-    child.on('exit', (code) => process.exit(code));
-  } else {
-    console.log('');
-    console.log(`  ${bold('When ready, run:')}`);
-    console.log(`  ${cyan('node .workflow/launch.js')}\n`);
-    separator();
-    console.log('');
-    rl.close();
-  }
+  rl.close();
 };
 
 main().catch((err) => {
