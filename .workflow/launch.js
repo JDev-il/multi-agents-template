@@ -315,6 +315,34 @@ const main = async () => {
   );
   console.log(`  ${green('✓')} .claude-scope written`);
 
+  // ── Generate IDE settings ─────────────────────────────────────────────────────
+
+  // Determine which folders to hide based on scope
+  const excludedFolders = {
+    'client':  ['backend/', 'worktrees/', '.scaffold/', '.workflow/'],
+    'backend': ['client/', 'worktrees/', '.scaffold/', '.workflow/'],
+    'shared':  ['client/', 'backend/', 'worktrees/', '.scaffold/', '.workflow/'],
+  };
+  const foldersToHide = excludedFolders[project] || [];
+
+  // VS Code / Cursor — .vscode/settings.json
+  const vscodeDir = path.join(worktreePath, '.vscode');
+  fs.mkdirSync(vscodeDir, { recursive: true });
+  const vscodeSettings = {
+    'files.exclude': Object.fromEntries(foldersToHide.map(f => [f, true])),
+    'explorer.excludeGitIgnore': true,
+  };
+  fs.writeFileSync(
+    path.join(vscodeDir, 'settings.json'),
+    JSON.stringify(vscodeSettings, null, 2),
+    'utf8'
+  );
+  console.log(`  ${green('✓')} .vscode/settings.json generated (VS Code / Cursor)`);
+
+  // WebStorm / IntelliJ — print manual instructions
+  console.log(`  ${dim('!')} WebStorm/IntelliJ users — exclude these folders manually:`);
+  foldersToHide.forEach(f => console.log(`     ${dim(`File → Settings → Directories → Excluded: ${f}`)}`));
+
   // ── Write TASK.md ─────────────────────────────────────────────────────────────
 
   fs.writeFileSync(
