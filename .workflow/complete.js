@@ -197,6 +197,22 @@ const main = async () => {
   separator();
   console.log(`\n${bold('Completing task...')}\n`);
 
+  // ── Auto-commit uncommitted changes in worktree ──────────────────────────────
+
+  try {
+    const status = execSync('git status --porcelain', { cwd: worktreePath, stdio: 'pipe' }).toString().trim();
+    if (status) {
+      console.log(`  ${yellow('!')} Uncommitted changes detected - committing before merge...`);
+      execSync('git add .', { cwd: worktreePath, stdio: 'pipe' });
+      execSync(`git commit -m "feat: task completion commit [${branchName}]"`, { cwd: worktreePath, stdio: 'pipe' });
+      console.log(`  ${green('✓')} Changes committed`);
+    } else {
+      console.log(`  ${green('✓')} Worktree is clean`);
+    }
+  } catch (err) {
+    console.log(`  ${yellow('!')} Could not auto-commit — commit manually if needed`);
+  }
+
   // ── Pull latest main ──────────────────────────────────────────────────────────
 
   try {
