@@ -50,12 +50,12 @@ if (fs.existsSync(LOCK_FILE)) {
 // ── Decision tree ─────────────────────────────────────────────────────────────
 
 const CLIENT_FRAMEWORKS = [
-  { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript' },
-  { label: 'Angular',       value: 'Angular',    language: 'TypeScript' },
-  { label: 'Vue / Nuxt',    value: 'Nuxt',       language: 'TypeScript' },
-  { label: 'SvelteKit',     value: 'SvelteKit',  language: 'TypeScript' },
-  { label: 'Remix',         value: 'Remix',      language: 'TypeScript' },
-  { label: 'Vite + React',  value: 'Vite+React', language: 'TypeScript' },
+  { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript', integratedBackend: true  },
+  { label: 'Angular',       value: 'Angular',    language: 'TypeScript', integratedBackend: false },
+  { label: 'Vue / Nuxt',    value: 'Nuxt',       language: 'TypeScript', integratedBackend: true  },
+  { label: 'SvelteKit',     value: 'SvelteKit',  language: 'TypeScript', integratedBackend: true  },
+  { label: 'Remix',         value: 'Remix',      language: 'TypeScript', integratedBackend: true  },
+  { label: 'Vite + React',  value: 'Vite+React', language: 'TypeScript', integratedBackend: false },
 ];
 
 const BACKEND_FRAMEWORKS = [
@@ -244,22 +244,45 @@ const main = async () => {
   // ── Backend ─────────────────────────────────────────────────────────────────
 
   console.log(`\n${bold(blue('Backend configuration'))}`);
-  console.log(dim('  You can skip the backend framework and decide later.\n'));
 
-  const backendFwObj = await (async () => {
-    console.log(`\n${bold('Backend framework:')}`);
-    showList(BACKEND_FRAMEWORKS, true);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
-    if (input === '0' || input === '') return null;
-    const index = parseInt(input) - 1;
-    if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
-    return BACKEND_FRAMEWORKS[index];
-  })();
+  // Check if client framework has integrated backend support
+  let useIntegratedBackend = false;
+  let backendFw   = null;
+  let backendLang = null;
+  let backendOrm  = null;
+  let backendAuth = null;
+  let backendType = null;
 
-  const backendFw   = backendFwObj ? backendFwObj.value    : null;
-  const backendLang = backendFwObj ? backendFwObj.language : null;
-  const backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
-  const backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
+  if (clientFw.integratedBackend) {
+    console.log(dim(`  ${clientFw.value} supports server-side rendering and API routes.\n`));
+    const integratedAnswer = await ask(`  ${bold('Use integrated backend')} ${dim(`(${clientFw.value} API routes/SSR)`)} ${dim('instead of a separate backend? (y/n)')}: `);
+    useIntegratedBackend = integratedAnswer.toLowerCase() === 'y';
+
+    if (useIntegratedBackend) {
+      backendType = 'integrated';
+      console.log(dim(`\n  Using ${clientFw.value} integrated backend. No separate backend needed.\n`));
+    }
+  }
+
+  if (!useIntegratedBackend) {
+    console.log(dim('  You can skip the backend framework and decide later.\n'));
+
+    const backendFwObj = await (async () => {
+      console.log(`\n${bold('Backend framework:')}`);
+      showList(BACKEND_FRAMEWORKS, true);
+      const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
+      if (input === '0' || input === '') return null;
+      const index = parseInt(input) - 1;
+      if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
+      return BACKEND_FRAMEWORKS[index];
+    })();
+
+    backendFw   = backendFwObj ? backendFwObj.value    : null;
+    backendLang = backendFwObj ? backendFwObj.language : null;
+    backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
+    backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
+    backendType = backendFw ? 'separate' : null;
+  }
 
   separator();
 
@@ -272,10 +295,12 @@ const main = async () => {
   summaryLine('State management',  clientState);
   summaryLine('UI library',        clientUi);
   summaryLine('Styling',           clientStyle);
-  summaryLine('Backend framework', backendFw);
-  summaryLine('Backend language',  backendLang);
-  summaryLine('ORM',               backendOrm);
-  summaryLine('Auth',              backendAuth);
+  summaryLine('Backend type',     backendType === 'integrated' ? `${clientFw.value} integrated` : backendFw || '(skipped)');
+  if (backendType !== 'integrated') {
+    summaryLine('Backend language',  backendLang);
+    summaryLine('ORM',               backendOrm);
+    summaryLine('Auth',              backendAuth);
+  }
 
   console.log('');
   const confirm = await ask(`${bold('Confirm and write to config files?')} ${dim('(y/n)')}: `);
@@ -306,11 +331,13 @@ const main = async () => {
     process.exit(1);
   }
 
-  const TEMPLATES = path.join(CORE_DIR, 'templates');
+  const TEMPLATES = CORE_DIR;
 
   copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
-  copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
   copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
+  if (backendType === 'separate') {
+    copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
+  }
   fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
   fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
   console.log(`  ${green('✓')} Templates copied`);
@@ -336,14 +363,16 @@ const main = async () => {
   });
   console.log(`  ${green('✓')} client/CLAUDE.md configured`);
 
-  writeConfig(path.join(ROOT, 'backend', 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    FRAMEWORK:    backendFw,
-    LANGUAGE:     backendLang,
-    ORM:          backendOrm,
-    AUTH:         backendAuth,
-  });
-  console.log(`  ${green('✓')} backend/CLAUDE.md configured`);
+  if (backendType === 'separate') {
+    writeConfig(path.join(ROOT, 'backend', 'CLAUDE.md'), {
+      PROJECT_NAME: projectName,
+      FRAMEWORK:    backendFw,
+      LANGUAGE:     backendLang,
+      ORM:          backendOrm,
+      AUTH:         backendAuth,
+    });
+    console.log(`  ${green('✓')} backend/CLAUDE.md configured`);
+  }
 
   ensureGitignore('worktrees/');
   ensureGitignore('.agents-core/');
@@ -361,6 +390,7 @@ const main = async () => {
       styling:   clientStyle,
     },
     backend: {
+      type:      backendType,
       framework: backendFw,
       language:  backendLang,
       orm:       backendOrm,
@@ -374,6 +404,82 @@ const main = async () => {
     'utf8'
   );
   console.log(`  ${green('✓')} .scaffold/.config.json written`);
+
+  // ── Generate BUILD_STATE.md ──────────────────────────────────────────────────
+
+  const backendDisplay = backendType === 'integrated'
+    ? `${clientFw.value} integrated (API routes/SSR)`
+    : backendFw || 'Not configured';
+
+  const clientStack = [clientFw.value, clientLang, clientStyle, clientUi, clientState]
+    .filter(Boolean).join(' + ');
+
+  const backendStack = backendType === 'separate'
+    ? [backendFw, backendLang, backendOrm, backendAuth].filter(Boolean).join(' + ')
+    : backendDisplay;
+
+  const buildState = `# BUILD_STATE.md
+# Living project state. Read before every task. Update after completion.
+# Every agent must read this file at session start.
+
+## Project
+Name      : ${projectName}
+Initialized : ${new Date().toISOString()}
+
+## Stack
+Client  : ${clientStack}
+Backend : ${backendStack}
+
+## Client State
+- [ ] Scaffold - framework initialized
+- [ ] UI - components and layout
+- [ ] LOGIC - state management and API client
+- [ ] FORMS - form architecture
+- [ ] ROUTING - route definitions
+- [ ] TESTING - test suite
+- [ ] ACCESSIBILITY - a11y compliance
+
+## Backend State
+${backendType === 'integrated'
+  ? `Type: ${clientFw.value} integrated backend (API routes / SSR)
+- [ ] API routes - server-side endpoints
+- [ ] Auth - authentication strategy
+- [ ] DB - data layer if needed`
+  : backendType === 'separate'
+  ? `Type: Separate backend (${backendFw})
+- [ ] Scaffold - framework initialized
+- [ ] DB - schema and entities
+- [ ] API - endpoints and DTOs
+- [ ] AUTH - authentication strategy
+- [ ] LOGIC - business rules
+- [ ] EVENTS - webhooks and queues
+- [ ] JOBS - background tasks`
+  : 'Not configured - run node .workflow/launch.js and select backend when ready'}
+
+## Shared
+- [ ] CONTRACTS.md - no shared types defined yet
+
+## Dependency Rules
+Before starting any task, verify:
+- Client LOGIC requires: Client scaffold done
+- Client FORMS requires: Client scaffold done
+- Client ROUTING requires: Client scaffold done
+- API calls in client require: Backend API endpoints done OR mocked
+- Backend API requires: DB schema done (if using DB)
+- Backend AUTH requires: DB User entity done
+- Any cross-boundary types: Must exist in CONTRACTS.md first
+
+If a dependency is not met:
+  DEPENDENCY NOT MET - surface what is missing and propose options.
+  Never proceed silently on a missing dependency.
+
+## Agent Log
+| Date | Agent | Scope | Task | Status | Branch |
+|------|-------|-------|------|--------|--------|
+`;
+
+  fs.writeFileSync(path.join(ROOT, 'BUILD_STATE.md'), buildState, 'utf8');
+  console.log(`  ${green('✓')} BUILD_STATE.md generated`);
 
   // ── Lock ─────────────────────────────────────────────────────────────────────
 

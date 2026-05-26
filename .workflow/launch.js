@@ -324,6 +324,25 @@ const main = async () => {
   );
   console.log(`  ${green('✓')} TASK.md written`);
 
+  // ── Update BUILD_STATE.md ─────────────────────────────────────────────────────
+
+  const buildStatePath = path.join(ROOT, 'BUILD_STATE.md');
+  if (fs.existsSync(buildStatePath)) {
+    const date = new Date().toISOString().split('T')[0];
+    const logEntry = `| ${date} | ${agent} | ${project} | ${task} | IN PROGRESS | ${branchName} |\n`;
+    fs.appendFileSync(buildStatePath, logEntry, 'utf8');
+    console.log(`  ${green('✓')} BUILD_STATE.md updated`);
+
+    // Commit BUILD_STATE.md update to main so all worktrees can read it
+    try {
+      execSync('git add BUILD_STATE.md', { cwd: ROOT, stdio: 'pipe' });
+      execSync(`git commit -m "build: ${agent} task started on ${project} [${branchName}]"`, { cwd: ROOT, stdio: 'pipe' });
+      console.log(`  ${green('✓')} BUILD_STATE.md committed to main`);
+    } catch (err) {
+      console.log(`  ${yellow('!')} Could not commit BUILD_STATE.md — commit manually if needed`);
+    }
+  }
+
   // ── Open IDE ──────────────────────────────────────────────────────────────────
 
   const openedIDE = openIDE(worktreePath);
