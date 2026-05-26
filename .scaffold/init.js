@@ -331,7 +331,7 @@ const main = async () => {
     process.exit(1);
   }
 
-  const TEMPLATES = CORE_DIR;
+  const TEMPLATES = path.join(CORE_DIR, 'templates');
 
   copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
   copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
