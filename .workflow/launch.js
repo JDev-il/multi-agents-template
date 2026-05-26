@@ -227,13 +227,17 @@ Do NOT reuse a previous chat session for this task.
 
 ## When Complete
 1. Mark status as COMPLETED above
-2. Run from repo root:
+2. Go back to the repo root terminal (NOT this worktree terminal)
+3. Run from repo root:
 
 \`\`\`
 node .workflow/complete.js
 \`\`\`
 
 This merges your work into main and updates BUILD_STATE.md.
+
+> The repo root terminal is the one where you ran node .workflow/launch.js
+> Do NOT run complete.js from inside this worktree folder.
 
 ---
 
