@@ -225,6 +225,18 @@ Do NOT reuse a previous chat session for this task.
 
 ---
 
+## When Complete
+1. Mark status as COMPLETED above
+2. Run from repo root:
+
+\`\`\`
+node .workflow/complete.js
+\`\`\`
+
+This merges your work into main and updates BUILD_STATE.md.
+
+---
+
 ## Definition of Done
 ${dod || '- [ ] Task completed as described above'}
 
