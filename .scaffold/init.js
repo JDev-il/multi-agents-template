@@ -144,13 +144,17 @@ const selectRequired = async (prompt, items) => {
 
 const selectOptional = async (prompt, items) => {
   if (!items || items.length === 0) return null;
-  console.log(`\n${bold(prompt)}`);
-  showList(items, true);
-  const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
-  if (input === '0' || input === '') return null;
-  const index = parseInt(input) - 1;
-  if (isNaN(index) || index < 0 || index >= items.length) return null;
-  return typeof items[index] === 'string' ? items[index] : items[index].value;
+  while (true) {
+    console.log(`\n${bold(prompt)}`);
+    showList(items, true);
+    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
+    if (input === '0' || input === '') return null;
+    const index = parseInt(input) - 1;
+    if (!isNaN(index) && index >= 0 && index < items.length) {
+      return typeof items[index] === 'string' ? items[index] : items[index].value;
+    }
+    console.log(yellow(`  Invalid selection. Please enter a number between 0 and ${items.length}.`));
+  }
 };
 
 const separator = () => console.log(`\n${dim('─'.repeat(60))}`);

@@ -49,20 +49,6 @@ if (!fs.existsSync(LOCK_PATH)) {
 
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 
-// ── Location guard ────────────────────────────────────────────────────────────
-
-const normalizedCwd  = path.resolve(process.cwd());
-const normalizedRoot = path.resolve(ROOT);
-
-if (normalizedCwd !== normalizedRoot) {
-  console.log(`\n${red('  Wrong location detected.')}`);
-  console.log(dim(`  You are here : ${normalizedCwd}`));
-  console.log(dim(`  Should be    : ${normalizedRoot}\n`));
-  console.log(bold('  Run this to fix it:'));
-  console.log(cyan(`\n  cd "${normalizedRoot}" && node .workflow/complete.js\n`));
-  process.exit(1);
-}
-
 // ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
@@ -266,8 +252,9 @@ const main = async () => {
     execSync('git push origin main', { cwd: ROOT, stdio: 'pipe' });
     console.log(`  ${green('✓')} Pushed to origin/main`);
   } catch (err) {
-    console.log(`  ${yellow('!')} Could not push to origin. Push manually:`);
-    console.log(dim('     git push origin main'));
+    console.log(`  ${yellow('!')} Could not push to origin.`);
+    console.log(dim('     This is normal if you have not set up a remote repo yet.'));
+    console.log(dim('     When ready: git push origin main'));
   }
 
   // ── Remove worktree ───────────────────────────────────────────────────────────
