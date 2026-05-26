@@ -208,6 +208,11 @@ Project : ${project}
 Agent   : ${agent}
 Branch  : ${branchName}
 
+## Execution Mode
+AUTONOMOUS - Execute all subtasks without stopping for confirmation.
+Only stop if a genuinely destructive action is detected (modifying or deleting existing files).
+New file creation does not require confirmation.
+
 ## Task
 ${prompt}
 
