@@ -2,3 +2,5 @@
 worktrees/
 
 .agents-core/
+.scaffold/.initialized
+.scaffold/.config.json
