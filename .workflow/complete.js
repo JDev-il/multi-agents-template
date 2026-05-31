@@ -273,18 +273,9 @@ const main = async () => {
     console.log(dim('     When ready: git push origin main'));
   }
 
-  // ── Remove worktree ───────────────────────────────────────────────────────────
-
-  const removeWorktree = await ask(`\n  ${bold('Remove worktree?')} ${dim('(y/n — keeps branch history either way)')}: `);
-  if (removeWorktree.toLowerCase() === 'y') {
-    try {
-      execSync(`git worktree remove "${worktreePath}" --force`, { cwd: ROOT, stdio: 'pipe' });
-      console.log(`  ${green('✓')} Worktree removed`);
-    } catch {
-      console.log(`  ${yellow('!')} Could not remove worktree automatically.`);
-      console.log(dim(`     Remove manually: git worktree remove "${worktreePath}" --force`));
-    }
-  }
+  // ── Worktree retained ────────────────────────────────────────────────────────
+  // Worktree is kept for reference. Clean up manually when no longer needed:
+  // git worktree remove "${worktreePath}" --force
 
   // ── Done ──────────────────────────────────────────────────────────────────────
 
