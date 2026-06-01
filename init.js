@@ -441,6 +441,16 @@ const main = async () => {
   ensureGitignore('.agents-core/');
   ensureGitignore('.scaffold/');
   ensureGitignore('.workflow/');
+
+  // Remove template-specific gitignore entries so generated files can be committed
+  const gitignorePath = path.join(ROOT, '.gitignore');
+  let gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
+  ['client/', 'backend/', 'shared/', 'CLAUDE.md', 'CONTRACTS.md', 'BUILD_STATE.md'].forEach(entry => {
+    gitignoreContent = gitignoreContent.replace(`\n${entry}`, '');
+    gitignoreContent = gitignoreContent.replace(`${entry}\n`, '');
+    gitignoreContent = gitignoreContent.replace(entry, '');
+  });
+  fs.writeFileSync(gitignorePath, gitignoreContent.trim() + '\n', 'utf8');
   console.log(`  ${green('✓')} .gitignore updated`);
 
   // ── Write .config.json ───────────────────────────────────────────────────────
