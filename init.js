@@ -47,41 +47,43 @@ if (!fs_temp.existsSync(path.join(__dirname, '.scaffold'))) {
 }
 
 if (fs.existsSync(LOCK_FILE)) {
-  const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
-  const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
+  (async () => {
+    const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
+    const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
 
-  console.log(`\n${yellow('  This project has already been initialized.')}`);
-  console.log(dim(`  Initialized on: ${ts}\n`));
-  console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
-  console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
-  console.log(`  ${dim('3.')} Exit\n`);
+    console.log(`\n${yellow('  This project has already been initialized.')}`);
+    console.log(dim(`  Initialized on: ${ts}\n`));
+    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
+    console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
+    console.log(`  ${dim('3.')} Exit\n`);
 
-  const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
+    const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
 
-  if (choice === '1') {
-    console.log('');
-    rl2.close();
-    const { spawn } = require('child_process');
-    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-      stdio: 'inherit',
-      cwd: ROOT,
-    });
-    child.on('exit', (code) => process.exit(code));
-    return;
-  } else if (choice === '2') {
-    console.log(yellow('\n  Resetting configuration...\n'));
-    fs.unlinkSync(LOCK_FILE);
-    const configPath = path.join(__dirname, '.config.json');
-    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
-    rl2.close();
-    console.log(green('  Reset complete. Re-running initialization...\n'));
-    // Continue to main() below
-  } else {
-    console.log(dim('\n  Exited.\n'));
-    rl2.close();
-    process.exit(0);
-  }
+    if (choice === '1') {
+      console.log('');
+      rl2.close();
+      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+        stdio: 'inherit',
+        cwd: ROOT,
+      });
+      child.on('exit', (code) => process.exit(code));
+    } else if (choice === '2') {
+      console.log(yellow('\n  Resetting configuration...\n'));
+      fs.unlinkSync(LOCK_FILE);
+      const configPath = path.join(RUNTIME_DIR, '.config.json');
+      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+      rl2.close();
+      console.log(green('  Reset complete. Re-running initialization...\n'));
+      main();
+    } else {
+      console.log(dim('\n  Exited.\n'));
+      rl2.close();
+      process.exit(0);
+    }
+  })();
+} else {
+  main();
 }
 
 // ── Decision tree ─────────────────────────────────────────────────────────────
@@ -584,7 +586,9 @@ If a dependency is not met:
   }
 };
 
-main().catch((err) => {
-  console.error('\n  Error:', err.message);
-  process.exit(1);
-});
+function runMain() {
+  main().catch((err) => {
+    console.error('\n  Error:', err.message);
+    process.exit(1);
+  });
+}
