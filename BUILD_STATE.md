@@ -45,3 +45,4 @@ If a dependency is not met:
 ## Agent Log
 | Date | Agent | Scope | Task | Status | Branch |
 |------|-------|-------|------|--------|--------|
+| 2026-06-01 | UI | client | scaffold the app | IN PROGRESS | agent/client/ui/1780316626976 |
