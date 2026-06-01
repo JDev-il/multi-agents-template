@@ -2,7 +2,7 @@
 
 /**
  * Multi-Agent Monorepo Template - Project Initializer
- * Run with: node .scaffold/init.js
+ * Run with: npm run init
  *
  * Runs once. Locked after completion via .scaffold/.initialized
  * Delete .scaffold/.initialized to re-run.
@@ -36,8 +36,15 @@ const red    = (s) => `${c.red}${s}${c.reset}`;
 
 // ── Lock check ────────────────────────────────────────────────────────────────
 
-const LOCK_FILE = path.join(__dirname, '.initialized');
-const ROOT      = path.join(__dirname, '..');
+const ROOT        = __dirname;
+const RUNTIME_DIR = path.join(ROOT, '.scaffold');
+const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
+
+// Ensure .scaffold/ runtime dir exists
+const fs_temp = require('fs');
+if (!fs_temp.existsSync(path.join(__dirname, '.scaffold'))) {
+  fs_temp.mkdirSync(path.join(__dirname, '.scaffold'), { recursive: true });
+}
 
 if (fs.existsSync(LOCK_FILE)) {
   const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
@@ -46,7 +53,7 @@ if (fs.existsSync(LOCK_FILE)) {
 
   console.log(`\n${yellow('  This project has already been initialized.')}`);
   console.log(dim(`  Initialized on: ${ts}\n`));
-  console.log(`  ${dim('1.')} Continue  — run ${cyan('node .workflow/launch.js')}`);
+  console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
   console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
   console.log(`  ${dim('3.')} Exit\n`);
 
@@ -386,6 +393,14 @@ const main = async () => {
   fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
   console.log(`  ${green('✓')} Templates copied`);
 
+  // ── Copy workflow scripts ────────────────────────────────────────────────────
+
+  const WORKFLOW_SRC  = path.join(CORE_DIR, 'workflow');
+  const WORKFLOW_DEST = path.join(ROOT, '.workflow');
+  fs.mkdirSync(WORKFLOW_DEST, { recursive: true });
+  copyDir(WORKFLOW_SRC, WORKFLOW_DEST);
+  console.log(`  ${green('✓')} Workflow scripts copied (.workflow/)`);
+
   execSync(`rm -rf "${CORE_DIR}"`);
   console.log(`  ${green('✓')} Temporary files cleaned up`);
 
@@ -420,6 +435,8 @@ const main = async () => {
 
   ensureGitignore('worktrees/');
   ensureGitignore('.agents-core/');
+  ensureGitignore('.scaffold/');
+  ensureGitignore('.workflow/');
   console.log(`  ${green('✓')} .gitignore updated`);
 
   // ── Write .config.json ───────────────────────────────────────────────────────
@@ -443,7 +460,7 @@ const main = async () => {
   };
 
   fs.writeFileSync(
-    path.join(__dirname, '.config.json'),
+    path.join(RUNTIME_DIR, '.config.json'),
     JSON.stringify(config, null, 2),
     'utf8'
   );
@@ -559,8 +576,8 @@ If a dependency is not met:
     child.on('exit', (code) => process.exit(code));
   } else {
     console.log('');
-    console.log(`  ${bold('When ready, run:')}`);
-    console.log(`  ${cyan('node .workflow/launch.js')}\n`);
+    console.log(`  ${bold('When ready, run:')}`); 
+    console.log(`  ${cyan('npm run launch')}\n`);
     separator();
     console.log('');
     rl.close();

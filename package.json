@@ -1,0 +1,19 @@
+{
+  "name": "multi-agents",
+  "version": "1.0.0",
+  "description": "Multi-Agent Monorepo Template powered by Claude Code and Git Worktrees",
+  "scripts": {
+    "init":     "node init.js",
+    "launch":   "node .workflow/launch.js",
+    "complete": "node .workflow/complete.js"
+  },
+  "keywords": [
+    "claude-code",
+    "multi-agent",
+    "git-worktree",
+    "monorepo",
+    "scaffold"
+  ],
+  "author": "Jonathan Daniel",
+  "license": "MIT"
+}
