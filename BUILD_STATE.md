@@ -12,7 +12,7 @@ Backend : Next.js integrated (API routes/SSR)
 
 ## Client State
 - [ ] Scaffold - framework initialized
-- [ ] UI - components and layout
+- [x] UI - components and layout
 - [ ] LOGIC - state management and API client
 - [ ] FORMS - form architecture
 - [ ] ROUTING - route definitions
@@ -43,6 +43,7 @@ If a dependency is not met:
   Never proceed silently on a missing dependency.
 
 ## Agent Log
-| Date | Agent | Scope | Task | Status | Branch |
-|------|-------|-------|------|--------|--------|
-| 2026-06-01 | UI | client | scaffold the app | IN PROGRESS | agent/client/ui/1780316626976 |
+
+| Date       | Agent | Scope  | Task             | Status    | Branch                        |
+|------------|-------|--------|------------------|-----------|-------------------------------|
+| 2026-06-01 | UI    | client | scaffold the app | COMPLETED | agent/client/ui/1780316626976 |
