@@ -47,9 +47,15 @@ This merges your work into main and updates BUILD_STATE.md.
 ---
 
 ## Status
-- [ ] NOT STARTED
-- [ ] IN PROGRESS
-- [ ] COMPLETED
+- [x] NOT STARTED
+- [x] IN PROGRESS
+- [x] COMPLETED
 
 ## Notes
-<!-- Agent writes completion notes, decisions, and open questions here -->
+
+Scaffolded full Next.js App Router client structure manually (no CLI tools, per CLAUDE.md rules).
+Stack: Next.js 15 + TypeScript + Styled Components v6 + shadcn/ui + Zustand.
+SC SSR handled via ServerStyleSheet registry in Providers.tsx (required for App Router).
+Design tokens live in src/styles/theme.ts — Tailwind CSS variables in globals.css stay in sync.
+shadcn components.json configured; components added via `npx shadcn add <component>` going forward.
+No business logic, no state, no routing — pure scaffold structure only.
