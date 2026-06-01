@@ -6,17 +6,5 @@ worktrees/
 .scaffold/.config.json
 .scaffold/
 .workflow/
-client/
-backend/
-shared/
-CLAUDE.md
-CONTRACTS.md
-BUILD_STATE.md
 .scaffold/
 .workflow/
-client/
-backend/
-shared/
-CLAUDE.md
-CONTRACTS.md
-BUILD_STATE.md
