@@ -28,3 +28,13 @@ CONTRACTS.md
 BUILD_STATE.md
 TASK.md
 worktrees/
+.scaffold/
+.workflow/
+client/
+backend/
+shared/
+CLAUDE.md
+CONTRACTS.md
+BUILD_STATE.md
+TASK.md
+worktrees/

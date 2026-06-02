@@ -11,6 +11,7 @@
 const readline  = require('readline');
 const fs        = require('fs');
 const path      = require('path');
+const os        = require('os');
 const { execSync, spawn } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
@@ -113,41 +114,140 @@ const AUTH_OPTIONS = {
 };
 
 const IDE_CANDIDATES = [
-  { cmd: 'code',     name: 'VS Code'        },
-  { cmd: 'cursor',   name: 'Cursor'         },
-  { cmd: 'webstorm', name: 'WebStorm',       note: 'requires CLI launcher via Toolbox' },
-  { cmd: 'idea',     name: 'IntelliJ IDEA',  note: 'requires CLI launcher via Toolbox' },
-  { cmd: 'zed',      name: 'Zed'            },
-  { cmd: null,       name: 'Other / Manual', note: 'prints worktree path, open it yourself' },
+  {
+    cmd:   'code',
+    name:  'VS Code',
+    mac:   { app: 'Visual Studio Code' },
+    win:   { paths: ['{LOCALAPPDATA}\\Programs\\Microsoft VS Code\\Code.exe', '{ProgramFiles}\\Microsoft VS Code\\Code.exe'] },
+    linux: { paths: ['/snap/bin/code', '/usr/bin/code', '/usr/local/bin/code'] },
+  },
+  {
+    cmd:   'cursor',
+    name:  'Cursor',
+    mac:   { app: 'Cursor' },
+    win:   { paths: ['{LOCALAPPDATA}\\Programs\\cursor\\Cursor.exe'] },
+    linux: { paths: ['/usr/bin/cursor', '/opt/cursor/cursor'] },
+  },
+  {
+    cmd:   'webstorm',
+    name:  'WebStorm',
+    note:  'requires CLI launcher via Toolbox',
+    mac:   { app: 'WebStorm' },
+    win:   { paths: [] },
+    linux: { paths: ['/opt/webstorm/bin/webstorm.sh'] },
+  },
+  {
+    cmd:   'idea',
+    name:  'IntelliJ IDEA',
+    note:  'requires CLI launcher via Toolbox',
+    mac:   { app: 'IntelliJ IDEA' },
+    win:   { paths: [] },
+    linux: { paths: ['/opt/idea/bin/idea.sh'] },
+  },
+  {
+    cmd:   'zed',
+    name:  'Zed',
+    mac:   { app: 'Zed' },
+    win:   { paths: [] },
+    linux: { paths: ['/usr/bin/zed', `${os.homedir()}/.local/bin/zed`] },
+  },
+  {
+    cmd:  null,
+    name: 'Other / Manual',
+    note: 'prints worktree path, open it yourself',
+    mac:  null,
+    win:  null,
+    linux:null,
+  },
 ];
 
+// Expands {LOCALAPPDATA} / {ProgramFiles} placeholders for Windows paths
+const expandWinPath = (p) =>
+  p.replace('{LOCALAPPDATA}',  process.env.LOCALAPPDATA  || '')
+   .replace('{ProgramFiles}',  process.env.ProgramFiles  || 'C:\\Program Files');
+
 const buildIDEOptions = () => {
-  const which = process.platform === 'win32' ? 'where' : 'which';
+  const platform = process.platform;
 
   return IDE_CANDIDATES.map(ide => {
-    let detected = false;
-    if (ide.cmd) {
-      try {
-        execSync(`${which} ${ide.cmd}`, { stdio: 'pipe' });
-        detected = true;
-      } catch { /* not found */ }
+    if (!ide.cmd) {
+      const noteStr = ide.note ? dim(`  (${ide.note})`) : '';
+      return { ...ide, detected: false, strategy: 'manual', label: `${ide.name}   ${dim('→')}${noteStr}` };
     }
-    const statusStr = ide.cmd === null
-      ? dim('→')
-      : (detected ? green('✓ detected') : dim('✗ not found'));
-    const noteStr = ide.note ? dim(`  (${ide.note})`) : '';
+
+    let detected  = false;
+    let strategy  = 'cli';
+
+    if (platform === 'darwin' && ide.mac) {
+      // Mac — check .app bundle in /Applications or ~/Applications
+      const system = `/Applications/${ide.mac.app}.app`;
+      const user   = path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`);
+      detected = fs.existsSync(system) || fs.existsSync(user);
+      if (detected) strategy = 'mac-app';
+
+    } else if (platform === 'win32' && ide.win) {
+      // Windows — CLI first, then known exe paths
+      try {
+        execSync(`where ${ide.cmd}`, { stdio: 'pipe' });
+        detected = true;
+        strategy  = 'cli';
+      } catch {
+        const expanded = (ide.win.paths || []).map(expandWinPath);
+        detected = expanded.some(p => fs.existsSync(p));
+        if (detected) strategy = 'win-exe';
+      }
+
+    } else if (platform === 'linux' && ide.linux) {
+      // Linux — CLI first, then known install paths
+      try {
+        execSync(`which ${ide.cmd}`, { stdio: 'pipe' });
+        detected = true;
+        strategy  = 'cli';
+      } catch {
+        detected = (ide.linux.paths || []).some(p => fs.existsSync(p));
+        if (detected) strategy = 'linux-path';
+      }
+    }
+
+    const statusStr = detected ? green('✓ detected') : dim('✗ not found');
+    const noteStr   = ide.note ? dim(`  (${ide.note})`) : '';
     return {
-      cmd:      ide.cmd,
-      name:     ide.name,
-      label:    `${ide.name}   ${statusStr}${noteStr}`,
+      ...ide,
       detected,
+      strategy,
+      label: `${ide.name}   ${statusStr}${noteStr}`,
     };
   });
 };
 
 const verifyIDE = (ide) => {
+  const platform = process.platform;
+
+  if (ide.strategy === 'mac-app' && ide.mac) {
+    // Mac — confirm .app exists and try to read version from plist
+    const appPath = `/Applications/${ide.mac.app}.app`;
+    if (!fs.existsSync(appPath) && !fs.existsSync(path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`))) {
+      return { ok: false };
+    }
+    try {
+      const version = execSync(
+        `defaults read "/Applications/${ide.mac.app}.app/Contents/Info.plist" CFBundleShortVersionString`,
+        { stdio: 'pipe', encoding: 'utf8' }
+      ).trim();
+      return { ok: true, version };
+    } catch {
+      return { ok: true, version: null };
+    }
+  }
+
+  // Windows exe / Linux path / CLI — try --version
   try {
-    const result = execSync(`"${ide.cmd}" --version`, { stdio: 'pipe', encoding: 'utf8' });
+    const cmd = ide.strategy === 'win-exe'
+      ? `"${(ide.win?.paths || []).map(expandWinPath).find(p => fs.existsSync(p))}"`
+      : ide.strategy === 'linux-path'
+        ? `"${(ide.linux?.paths || []).find(p => fs.existsSync(p))}"`
+        : `"${ide.cmd}"`;
+    const result  = execSync(`${cmd} --version`, { stdio: 'pipe', encoding: 'utf8' });
     const version = result.split('\n')[0].trim();
     return { ok: true, version };
   } catch {
@@ -258,6 +358,21 @@ const copyDir = (src, dest) => {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const main = async () => {
+
+  // ── Self-detection guard ─────────────────────────────────────────────────────
+
+  try {
+    const remote = execSync('git remote get-url origin', { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }).trim();
+    if (remote.includes('multi-agents-template')) {
+      console.log(`\n${red('  Cannot run init inside the template repo itself.')}`);
+      console.log(dim('  Clone it first, then run init inside the clone:\n'));
+      console.log(cyan('  git clone https://github.com/JDev-il/multi-agents-template.git my-project'));
+      console.log(cyan('  cd my-project && npm run init\n'));
+      process.exit(1);
+    }
+  } catch {
+    // No remote configured — allow init to proceed (local-only project)
+  }
 
   // ── Lock check ───────────────────────────────────────────────────────────────
 
@@ -550,7 +665,14 @@ const main = async () => {
 
   const config = {
     projectName,
-    ide: { cmd: ideChoice.cmd, label: ideChoice.name },
+    ide: {
+      name:       ideChoice.name,
+      strategy:   ideChoice.strategy,
+      cmd:        ideChoice.cmd    || null,
+      app:        ideChoice.mac?.app  || null,
+      winPaths:   (ideChoice.win?.paths  || []).map(expandWinPath),
+      linuxPaths: ideChoice.linux?.paths || [],
+    },
     client: {
       framework: clientFw.value,
       language:  clientLang,
