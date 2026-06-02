@@ -1,19 +1,12 @@
 "use client";
 
 import styled from "styled-components";
-import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 
 const LayoutRoot = styled.div`
   display: flex;
-  min-height: 100vh;
-`;
-
-const ContentArea = styled.div`
-  flex: 1;
-  display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-height: 100vh;
 `;
 
 const Main = styled.main`
@@ -25,11 +18,8 @@ const Main = styled.main`
 export function MainLayout({ children }: { children: React.ReactNode }) {
   return (
     <LayoutRoot>
-      <Sidebar />
-      <ContentArea>
-        <Header />
-        <Main>{children}</Main>
-      </ContentArea>
+      <Header />
+      <Main>{children}</Main>
     </LayoutRoot>
   );
 }
