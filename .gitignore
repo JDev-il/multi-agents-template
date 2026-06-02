@@ -8,3 +8,13 @@ worktrees/
 .workflow/
 .scaffold/
 .workflow/
+.scaffold/
+.workflow/
+client/
+backend/
+shared/
+CLAUDE.md
+CONTRACTS.md
+BUILD_STATE.md
+TASK.md
+worktrees/
