@@ -359,21 +359,6 @@ const copyDir = (src, dest) => {
 
 const main = async () => {
 
-  // ── Self-detection guard ─────────────────────────────────────────────────────
-
-  try {
-    const remote = execSync('git remote get-url origin', { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }).trim();
-    if (remote.includes('multi-agents-template')) {
-      console.log(`\n${red('  Cannot run init inside the template repo itself.')}`);
-      console.log(dim('  Clone it first, then run init inside the clone:\n'));
-      console.log(cyan('  git clone https://github.com/JDev-il/multi-agents-template.git my-project'));
-      console.log(cyan('  cd my-project && npm run init\n'));
-      process.exit(1);
-    }
-  } catch {
-    // No remote configured — allow init to proceed (local-only project)
-  }
-
   // ── Lock check ───────────────────────────────────────────────────────────────
 
   if (fs.existsSync(LOCK_FILE)) {
