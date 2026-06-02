@@ -3,11 +3,11 @@
 # Every agent must read this file at session start.
 
 ## Project
-Name      : full flow test
-Initialized : 2026-06-02T11:39:09.069Z
+Name      : test full flow
+Initialized : 2026-06-02T12:29:28.511Z
 
 ## Stack
-Client  : Next.js + TypeScript + Styled Components + shadcn/ui + TanStack Query
+Client  : Next.js + TypeScript + Styled Components + shadcn/ui + Zustand
 Backend : Next.js integrated (API routes/SSR)
 
 ## Client State
@@ -45,4 +45,3 @@ If a dependency is not met:
 ## Agent Log
 | Date | Agent | Scope | Task | Status | Branch |
 |------|-------|-------|------|--------|--------|
-| 2026-06-02 | UI | client | Create the ui | COMPLETED | agent/client/ui/1780400377483 |

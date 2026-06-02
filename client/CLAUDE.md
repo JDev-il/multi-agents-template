@@ -1,4 +1,4 @@
-# full flow test - Client Agent Instructions
+# test full flow - Client Agent Instructions
 #
 # ╔══════════════════════════════════════════════════════════════════╗
 # ║                        @config BLOCK                            ║
@@ -6,11 +6,11 @@
 # ║  Confirmed values are written back here immediately.            ║
 # ╚══════════════════════════════════════════════════════════════════╝
 #
-# @config PROJECT_NAME  : full flow test
+# @config PROJECT_NAME  : test full flow
 # @config FRAMEWORK     : Next.js
 # @config LANGUAGE      : TypeScript
 # @config UI_LIBRARY    : shadcn/ui
-# @config STATE         : TanStack Query
+# @config STATE         : Zustand
 # @config STYLING       : Styled Components
 #
 # ── Write-back rule ─────────────────────────────────────────────────

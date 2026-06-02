@@ -1,5 +1,5 @@
-# full flow test - Global Agent Instructions
-# @config PROJECT_NAME: full flow test
+# test full flow - Global Agent Instructions
+# @config PROJECT_NAME: test full flow
 
 ---
 
@@ -14,7 +14,7 @@
 <!-- @annotation: Update tree to match your layout. Default assumes client + backend. -->
 
 ```
-full flow test/
+test full flow/
 ├── .git
 ├── CLAUDE.md                 ← this file (global, always auto-loaded)
 ├── CONTRACTS.md              ← shared types and enums (single source of truth)
