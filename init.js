@@ -112,6 +112,49 @@ const AUTH_OPTIONS = {
   'Rails':    ['Devise', 'JWT', 'OAuth2'],
 };
 
+const IDE_CANDIDATES = [
+  { cmd: 'code',     name: 'VS Code'        },
+  { cmd: 'cursor',   name: 'Cursor'         },
+  { cmd: 'webstorm', name: 'WebStorm',       note: 'requires CLI launcher via Toolbox' },
+  { cmd: 'idea',     name: 'IntelliJ IDEA',  note: 'requires CLI launcher via Toolbox' },
+  { cmd: 'zed',      name: 'Zed'            },
+  { cmd: null,       name: 'Other / Manual', note: 'prints worktree path, open it yourself' },
+];
+
+const buildIDEOptions = () => {
+  const which = process.platform === 'win32' ? 'where' : 'which';
+
+  return IDE_CANDIDATES.map(ide => {
+    let detected = false;
+    if (ide.cmd) {
+      try {
+        execSync(`${which} ${ide.cmd}`, { stdio: 'pipe' });
+        detected = true;
+      } catch { /* not found */ }
+    }
+    const statusStr = ide.cmd === null
+      ? dim('→')
+      : (detected ? green('✓ detected') : dim('✗ not found'));
+    const noteStr = ide.note ? dim(`  (${ide.note})`) : '';
+    return {
+      cmd:      ide.cmd,
+      name:     ide.name,
+      label:    `${ide.name}   ${statusStr}${noteStr}`,
+      detected,
+    };
+  });
+};
+
+const verifyIDE = (ide) => {
+  try {
+    const result = execSync(`"${ide.cmd}" --version`, { stdio: 'pipe', encoding: 'utf8' });
+    const version = result.split('\n')[0].trim();
+    return { ok: true, version };
+  } catch {
+    return { ok: false };
+  }
+};
+
 // ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
@@ -331,6 +374,55 @@ const main = async () => {
 
   separator();
 
+  // ── Environment ─────────────────────────────────────────────────────────────
+
+  console.log(`\n${bold(blue('Environment'))}`);
+
+  const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[process.platform] || process.platform;
+  console.log(`\n  ${dim('OS detected:')} ${bold(osName)}`);
+  console.log(dim('  Scanning for installed IDEs...\n'));
+
+  const ideOptions = buildIDEOptions();
+
+  let ideChoice;
+  while (true) {
+    ideChoice = await selectRequired('* IDE / editor (required):', ideOptions);
+
+    // ── Confirmation ──────────────────────────────────────────────────────────
+    console.log(`\n  Selected: ${bold(ideChoice.name)}`);
+    if (ideChoice.cmd && !ideChoice.detected) {
+      console.log(yellow(`  ⚠ ${ideChoice.name} was not detected on PATH. It may not open automatically.`));
+    }
+    const confirmIde = await ask(`  ${bold('Confirm this selection?')} ${dim('(y/n)')}: `);
+    if (confirmIde.toLowerCase() !== 'y') {
+      console.log(dim('  Re-selecting...\n'));
+      continue;
+    }
+
+    // ── Double-check ──────────────────────────────────────────────────────────
+    if (!ideChoice.cmd) {
+      // Manual — no verification needed
+      console.log(dim('  Manual mode — worktree path will be printed at launch.'));
+      break;
+    }
+
+    console.log(dim(`\n  Verifying ${ideChoice.name}...`));
+    const verified = verifyIDE(ideChoice);
+
+    if (verified.ok) {
+      const versionStr = verified.version ? dim(` (${verified.version})`) : '';
+      console.log(`  ${green('✓')} ${ideChoice.name} confirmed${versionStr}`);
+      break;
+    }
+
+    console.log(`  ${yellow('!')} Could not verify ${ideChoice.name}. The CLI may not be installed or accessible.`);
+    const proceedAnyway = await ask(`  ${bold('Continue with this IDE anyway?')} ${dim('(y/n)')}: `);
+    if (proceedAnyway.toLowerCase() === 'y') break;
+    console.log(dim('  Re-selecting...\n'));
+  }
+
+  separator();
+
   // ── Summary ─────────────────────────────────────────────────────────────────
 
   console.log(`\n${bold('Review your configuration:')}\n`);
@@ -346,6 +438,7 @@ const main = async () => {
     summaryLine('ORM',               backendOrm);
     summaryLine('Auth',              backendAuth);
   }
+  summaryLine('IDE / Editor',      ideChoice.name);
 
   console.log('');
   console.log(dim('  y = confirm  |  n = abort  |  e = edit (start over)\n'));
@@ -457,6 +550,7 @@ const main = async () => {
 
   const config = {
     projectName,
+    ide: { cmd: ideChoice.cmd, label: ideChoice.name },
     client: {
       framework: clientFw.value,
       language:  clientLang,
