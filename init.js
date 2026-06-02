@@ -484,9 +484,24 @@ const main = async () => {
 
   const ideOptions = buildIDEOptions();
 
+  const detectedIDEs  = ideOptions.filter(o => o.detected);
+  const undetectedIDEs = ideOptions.filter(o => !o.detected && o.cmd);
+  const manualOption  = ideOptions.filter(o => !o.cmd);
+
+  // Detected first → undetected → manual
+  const sortedIdeOptions = [...detectedIDEs, ...undetectedIDEs, ...manualOption];
+
+  if (detectedIDEs.length > 1) {
+    console.log(`\n  ${yellow('Multiple IDEs found on this machine')} — select your preference:\n`);
+  } else if (detectedIDEs.length === 1) {
+    console.log(`\n  ${green(`1 IDE found:`)} ${bold(detectedIDEs[0].name)}\n`);
+  } else {
+    console.log(`\n  ${yellow('No IDEs detected on this machine.')}\n`);
+  }
+
   let ideChoice;
   while (true) {
-    ideChoice = await selectRequired('* IDE / editor (required):', ideOptions);
+    ideChoice = await selectRequired('* IDE / editor (required):', sortedIdeOptions);
 
     // ── Confirmation ──────────────────────────────────────────────────────────
     console.log(`\n  Selected: ${bold(ideChoice.name)}`);
