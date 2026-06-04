@@ -1,9 +1,0 @@
-{
-  "files.exclude": {
-    "backend/": true,
-    "worktrees/": true,
-    ".scaffold/": true,
-    ".workflow/": true
-  },
-  "explorer.excludeGitIgnore": true
-}
