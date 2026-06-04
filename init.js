@@ -255,6 +255,118 @@ const verifyIDE = (ide) => {
   }
 };
 
+// ── Tracking structure ────────────────────────────────────────────────────────
+
+const emptySlot = () => ({
+  branch:       null,
+  timestamp:    null,
+  launchedAt:   null,
+  status:       null,
+  missingCount: 0,
+  worktreePath: null,
+});
+
+const generateTrackingStructure = (config) => {
+  const bt = config.backend?.type;
+
+  const structure = {
+    client: {
+      UI:            emptySlot(),
+      LOGIC:         emptySlot(),
+      FORMS:         emptySlot(),
+      ROUTING:       emptySlot(),
+      TESTING:       emptySlot(),
+      ACCESSIBILITY: emptySlot(),
+    },
+    shared: {
+      SECURITY: emptySlot(),
+    },
+  };
+
+  if (bt === 'separate') {
+    structure.backend = {
+      API:     emptySlot(),
+      LOGIC:   emptySlot(),
+      AUTH:    emptySlot(),
+      DB:      emptySlot(),
+      EVENTS:  emptySlot(),
+      JOBS:    emptySlot(),
+      TESTING: emptySlot(),
+    };
+  }
+
+  return structure;
+};
+
+// ── GitHub remote setup ───────────────────────────────────────────────────────
+
+const detectGitHubUser = () => {
+  try {
+    return execSync('gh api user --jq .login',
+      { encoding: 'utf8', stdio: 'pipe' }).trim();
+  } catch {}
+  try {
+    return execSync('git config user.name',
+      { encoding: 'utf8', stdio: 'pipe' }).trim();
+  } catch {}
+  return null;
+};
+
+const setupUserRemote = async (ask, ROOT, projectName) => {
+  let currentOrigin = null;
+  try {
+    currentOrigin = execSync('git remote get-url origin',
+      { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
+  } catch {}
+
+  // If origin points to template repo — demote to upstream, clear origin
+  if (currentOrigin?.includes('multi-agents-template')) {
+    try {
+      execSync('git remote remove origin', { cwd: ROOT, stdio: 'pipe' });
+      execSync(`git remote add upstream ${currentOrigin}`, { cwd: ROOT, stdio: 'pipe' });
+    } catch {}
+  } else if (currentOrigin) {
+    // Already has their own remote — nothing to do
+    return;
+  }
+
+  separator();
+  console.log(`\n${bold(blue('Remote Setup'))}\n`);
+  console.log(dim('  Your project needs its own GitHub repository.'));
+  console.log(dim('  All agent branches and commits will be pushed there.\n'));
+
+  const ghUser  = detectGitHubUser();
+  const suggested = ghUser
+    ? `https://github.com/${ghUser}/${projectName.toLowerCase().replace(/\s+/g, '-')}`
+    : null;
+
+  if (suggested) {
+    console.log(`  ${dim('Suggested:')} ${cyan(suggested)}\n`);
+  }
+
+  const repoUrl = await ask(`  ${bold('Enter your GitHub repo URL')} ${dim('(or press Enter to skip)')}: `);
+
+  if (repoUrl.trim()) {
+    try {
+      execSync(`git remote add origin ${repoUrl.trim()}`, { cwd: ROOT, stdio: 'pipe' });
+      console.log(`  ${green('✓')} Origin set to: ${repoUrl.trim()}`);
+      try {
+        execSync('git push -u origin main', { cwd: ROOT, stdio: 'pipe' });
+        console.log(`  ${green('✓')} Initial push to your repository complete`);
+      } catch {
+        console.log(`  ${yellow('!')} Remote set but push failed — run manually:`);
+        console.log(cyan('     git push -u origin main'));
+      }
+    } catch (err) {
+      console.log(`  ${yellow('!')} Could not set remote: ${err.message}`);
+    }
+  } else {
+    console.log(dim('  Skipped — your project has no remote yet.'));
+    console.log(dim('  Add one when ready:'));
+    console.log(cyan('  git remote add origin https://github.com/yourname/yourproject\n'));
+  }
+};
+
 // ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
@@ -775,6 +887,17 @@ If a dependency is not met:
   fs.writeFileSync(path.join(ROOT, 'BUILD_STATE.md'), buildState, 'utf8');
   console.log(`  ${green('✓')} BUILD_STATE.md generated`);
 
+  // ── Tracking ──────────────────────────────────────────────────────────────────
+
+  const trackingPath = path.join(RUNTIME_DIR, '.tracking.json');
+  if (!fs.existsSync(trackingPath)) {
+    const trackingStructure = generateTrackingStructure(config);
+    fs.writeFileSync(trackingPath, JSON.stringify(trackingStructure, null, 2), 'utf8');
+    console.log(`  ${green('✓')} .tracking.json generated`);
+  } else {
+    console.log(dim('  ℹ .tracking.json already exists — preserved'));
+  }
+
   // ── Lock ─────────────────────────────────────────────────────────────────────
 
   fs.writeFileSync(LOCK_FILE, new Date().toISOString());
@@ -790,6 +913,10 @@ If a dependency is not met:
     console.log(`  ${yellow('!')} Could not auto-commit. Run manually:`);
     console.log(dim('     git add . && git commit -m "init: project configuration"'));
   }
+
+  // ── Remote setup ─────────────────────────────────────────────────────────────
+
+  await setupUserRemote(ask, ROOT, projectName);
 
   // ── Chain to launch.js ────────────────────────────────────────────────────────
 
