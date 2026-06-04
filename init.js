@@ -312,59 +312,34 @@ const detectGitHubUser = () => {
   return null;
 };
 
-const setupUserRemote = async (ask, ROOT, projectName) => {
+const setupUserRemote = (ROOT, projectName) => {
   let currentOrigin = null;
   try {
     currentOrigin = execSync('git remote get-url origin',
       { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
   } catch {}
 
-  // If origin points to template repo — demote to upstream, clear origin
+  // Already has their own remote — nothing to do
+  if (currentOrigin && !currentOrigin.includes('multi-agents-template')) return;
+
+  // Demote template origin to upstream
   if (currentOrigin?.includes('multi-agents-template')) {
     try {
       execSync('git remote remove origin', { cwd: ROOT, stdio: 'pipe' });
       execSync(`git remote add upstream ${currentOrigin}`, { cwd: ROOT, stdio: 'pipe' });
+      console.log(dim('  ℹ Template remote moved to upstream'));
     } catch {}
-  } else if (currentOrigin) {
-    // Already has their own remote — nothing to do
-    return;
   }
 
-  separator();
-  console.log(`\n${bold(blue('Remote Setup'))}\n`);
-  console.log(dim('  Your project needs its own GitHub repository.'));
-  console.log(dim('  All agent branches and commits will be pushed there.\n'));
+  // Write flag — agent will handle remote setup on first session
+  const flagPath = path.join(ROOT, '.scaffold', '.remote-setup-needed');
+  fs.writeFileSync(flagPath, JSON.stringify({
+    projectName,
+    createdAt: new Date().toISOString(),
+  }), 'utf8');
 
-  const ghUser  = detectGitHubUser();
-  const suggested = ghUser
-    ? `https://github.com/${ghUser}/${projectName.toLowerCase().replace(/\s+/g, '-')}`
-    : null;
-
-  if (suggested) {
-    console.log(`  ${dim('Suggested:')} ${cyan(suggested)}\n`);
-  }
-
-  const repoUrl = await ask(`  ${bold('Enter your GitHub repo URL')} ${dim('(or press Enter to skip)')}: `);
-
-  if (repoUrl.trim()) {
-    try {
-      execSync(`git remote add origin ${repoUrl.trim()}`, { cwd: ROOT, stdio: 'pipe' });
-      console.log(`  ${green('✓')} Origin set to: ${repoUrl.trim()}`);
-      try {
-        execSync('git push -u origin main', { cwd: ROOT, stdio: 'pipe' });
-        console.log(`  ${green('✓')} Initial push to your repository complete`);
-      } catch {
-        console.log(`  ${yellow('!')} Remote set but push failed — run manually:`);
-        console.log(cyan('     git push -u origin main'));
-      }
-    } catch (err) {
-      console.log(`  ${yellow('!')} Could not set remote: ${err.message}`);
-    }
-  } else {
-    console.log(dim('  Skipped — your project has no remote yet.'));
-    console.log(dim('  Add one when ready:'));
-    console.log(cyan('  git remote add origin https://github.com/yourname/yourproject\n'));
-  }
+  console.log(`\n  ${yellow('ℹ No remote configured.')} Your first agent session will set this up.`);
+  console.log(dim('  All work stays local until then.\n'));
 };
 
 // ── Readline ──────────────────────────────────────────────────────────────────
@@ -916,7 +891,7 @@ If a dependency is not met:
 
   // ── Remote setup ─────────────────────────────────────────────────────────────
 
-  await setupUserRemote(ask, ROOT, projectName);
+  setupUserRemote(ROOT, projectName);
 
   // ── Chain to launch.js ────────────────────────────────────────────────────────
 
