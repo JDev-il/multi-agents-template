@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * Multi-Agent Monorepo Template - Project Initializer
- * Run with: npm run init
+ * Multi-Agent Monorepo Template - Guards
+ * Required by launch.js and complete.js
  *
- * Runs once. Locked after completion via .scaffold/.initialized
- * Delete .scaffold/.initialized to re-run.
+ * Handles:
+ *  - Config field validation
+ *  - .tracking.json load / write / clear
+ *  - Stale worktree reconciliation
+ *  - MISSING detection + decision gate
+ *  - Coexistence check (git analysis)
+ *  - Recovery guidance generation
+ *  - Agent active check
  */
 
-const readline  = require('readline');
-const fs        = require('fs');
-const path      = require('path');
-const os        = require('os');
-const { execSync, spawn } = require('child_process');
+const fs           = require('fs');
+const path         = require('path');
+const { execSync } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
 
@@ -21,7 +25,6 @@ const c = {
   bold:   '\x1b[1m',
   dim:    '\x1b[2m',
   green:  '\x1b[32m',
-  blue:   '\x1b[34m',
   yellow: '\x1b[33m',
   cyan:   '\x1b[36m',
   red:    '\x1b[31m',
@@ -32,230 +35,11 @@ const green  = (s) => `${c.green}${s}${c.reset}`;
 const yellow = (s) => `${c.yellow}${s}${c.reset}`;
 const dim    = (s) => `${c.dim}${s}${c.reset}`;
 const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
-const blue   = (s) => `${c.blue}${s}${c.reset}`;
 const red    = (s) => `${c.red}${s}${c.reset}`;
 
-// ── Lock check ────────────────────────────────────────────────────────────────
+const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
 
-const ROOT        = __dirname;
-const RUNTIME_DIR = path.join(ROOT, '.scaffold');
-const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
-
-// Ensure .scaffold/ runtime dir exists
-const fs_temp = require('fs');
-if (!fs_temp.existsSync(path.join(__dirname, '.scaffold'))) {
-  fs_temp.mkdirSync(path.join(__dirname, '.scaffold'), { recursive: true });
-}
-
-// Lock check handled inside main()
-
-// ── Decision tree ─────────────────────────────────────────────────────────────
-
-const CLIENT_FRAMEWORKS = [
-  { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript', integratedBackend: true  },
-  { label: 'Angular',       value: 'Angular',    language: 'TypeScript', integratedBackend: false },
-  { label: 'Vue / Nuxt',    value: 'Nuxt',       language: 'TypeScript', integratedBackend: true  },
-  { label: 'SvelteKit',     value: 'SvelteKit',  language: 'TypeScript', integratedBackend: true  },
-  { label: 'Remix',         value: 'Remix',      language: 'TypeScript', integratedBackend: true  },
-  { label: 'Vite + React',  value: 'Vite+React', language: 'TypeScript', integratedBackend: false },
-];
-
-const BACKEND_FRAMEWORKS = [
-  { label: 'NestJS',   value: 'NestJS',   language: 'TypeScript' },
-  { label: 'Express',  value: 'Express',  language: 'TypeScript' },
-  { label: 'Fastify',  value: 'Fastify',  language: 'TypeScript' },
-  { label: 'Django',   value: 'Django',   language: 'Python'     },
-  { label: 'Laravel',  value: 'Laravel',  language: 'PHP'        },
-  { label: 'Rails',    value: 'Rails',    language: 'Ruby'       },
-];
-
-const STATE_OPTIONS = {
-  'Next.js':    ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Vite+React': ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Remix':      ['Zustand', 'Redux Toolkit', 'Jotai', 'TanStack Query'],
-  'Angular':    ['NgRx', 'Signals (built-in)', 'Akita'],
-  'Nuxt':       ['Pinia', 'Vuex'],
-  'SvelteKit':  ['Svelte stores (built-in)', 'Zustand'],
-};
-
-const UI_OPTIONS = {
-  'Next.js':    ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Vite+React': ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Remix':      ['shadcn/ui', 'Radix UI', 'MUI', 'Chakra UI', 'Ant Design'],
-  'Angular':    ['Angular Material', 'PrimeNG', 'Clarity'],
-  'Nuxt':       ['Vuetify', 'PrimeVue', 'Naive UI'],
-  'SvelteKit':  ['Skeleton', 'daisyUI', 'shadcn-svelte'],
-};
-
-const STYLING_OPTIONS = [
-  'Tailwind CSS',
-  'CSS Modules',
-  'Styled Components',
-  'SCSS / SASS',
-  'UnoCSS',
-];
-
-const ORM_OPTIONS = {
-  'NestJS':   ['TypeORM', 'Prisma', 'MikroORM', 'Drizzle'],
-  'Express':  ['Prisma', 'TypeORM', 'Drizzle', 'Sequelize'],
-  'Fastify':  ['Prisma', 'TypeORM', 'Drizzle'],
-  'Django':   ['Django ORM (built-in)', 'SQLAlchemy'],
-  'Laravel':  ['Eloquent (built-in)'],
-  'Rails':    ['Active Record (built-in)'],
-};
-
-const AUTH_OPTIONS = {
-  'NestJS':   ['Passport.js', 'JWT-only', 'OAuth2', 'Auth.js'],
-  'Express':  ['Passport.js', 'JWT-only', 'OAuth2'],
-  'Fastify':  ['fastify-jwt', 'Passport.js', 'OAuth2'],
-  'Django':   ['Django Auth (built-in)', 'DRF TokenAuth', 'OAuth2'],
-  'Laravel':  ['Laravel Sanctum', 'Laravel Passport', 'JWT'],
-  'Rails':    ['Devise', 'JWT', 'OAuth2'],
-};
-
-const IDE_CANDIDATES = [
-  {
-    cmd:     'code',
-    name:    'VS Code',
-    mac:     { app: 'Visual Studio Code', args: ['--new-window'] },
-    win:     { paths: ['{LOCALAPPDATA}\\Programs\\Microsoft VS Code\\Code.exe', '{ProgramFiles}\\Microsoft VS Code\\Code.exe'], args: ['--new-window'] },
-    linux:   { paths: ['/snap/bin/code', '/usr/bin/code', '/usr/local/bin/code'], args: ['--new-window'] },
-  },
-  {
-    cmd:     'cursor',
-    name:    'Cursor',
-    mac:     { app: 'Cursor', args: ['--new-window'] },
-    win:     { paths: ['{LOCALAPPDATA}\\Programs\\cursor\\Cursor.exe'], args: ['--new-window'] },
-    linux:   { paths: ['/usr/bin/cursor', '/opt/cursor/cursor'], args: ['--new-window'] },
-  },
-  {
-    cmd:     'webstorm',
-    name:    'WebStorm',
-    note:    'requires CLI launcher via Toolbox',
-    mac:     { app: 'WebStorm', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/opt/webstorm/bin/webstorm.sh'], args: [] },
-  },
-  {
-    cmd:     'idea',
-    name:    'IntelliJ IDEA',
-    note:    'requires CLI launcher via Toolbox',
-    mac:     { app: 'IntelliJ IDEA', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/opt/idea/bin/idea.sh'], args: [] },
-  },
-  {
-    cmd:     'zed',
-    name:    'Zed',
-    mac:     { app: 'Zed', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/usr/bin/zed', `${os.homedir()}/.local/bin/zed`], args: [] },
-  },
-  {
-    cmd:  null,
-    name: 'Other / Manual',
-    note: 'prints worktree path, open it yourself',
-    mac:  null,
-    win:  null,
-    linux:null,
-  },
-];
-
-// Expands {LOCALAPPDATA} / {ProgramFiles} placeholders for Windows paths
-const expandWinPath = (p) =>
-  p.replace('{LOCALAPPDATA}',  process.env.LOCALAPPDATA  || '')
-   .replace('{ProgramFiles}',  process.env.ProgramFiles  || 'C:\\Program Files');
-
-const buildIDEOptions = () => {
-  const platform = process.platform;
-
-  return IDE_CANDIDATES.map(ide => {
-    if (!ide.cmd) {
-      const noteStr = ide.note ? dim(`  (${ide.note})`) : '';
-      return { ...ide, detected: false, strategy: 'manual', label: `${ide.name}   ${dim('→')}${noteStr}` };
-    }
-
-    let detected  = false;
-    let strategy  = 'cli';
-
-    if (platform === 'darwin' && ide.mac) {
-      // Mac — check .app bundle in /Applications or ~/Applications
-      const system = `/Applications/${ide.mac.app}.app`;
-      const user   = path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`);
-      detected = fs.existsSync(system) || fs.existsSync(user);
-      if (detected) strategy = 'mac-app';
-
-    } else if (platform === 'win32' && ide.win) {
-      // Windows — CLI first, then known exe paths
-      try {
-        execSync(`where ${ide.cmd}`, { stdio: 'pipe' });
-        detected = true;
-        strategy  = 'cli';
-      } catch {
-        const expanded = (ide.win.paths || []).map(expandWinPath);
-        detected = expanded.some(p => fs.existsSync(p));
-        if (detected) strategy = 'win-exe';
-      }
-
-    } else if (platform === 'linux' && ide.linux) {
-      // Linux — CLI first, then known install paths
-      try {
-        execSync(`which ${ide.cmd}`, { stdio: 'pipe' });
-        detected = true;
-        strategy  = 'cli';
-      } catch {
-        detected = (ide.linux.paths || []).some(p => fs.existsSync(p));
-        if (detected) strategy = 'linux-path';
-      }
-    }
-
-    const statusStr = detected ? green('✓ detected') : dim('✗ not found');
-    const noteStr   = ide.note ? dim(`  (${ide.note})`) : '';
-    return {
-      ...ide,
-      detected,
-      strategy,
-      label: `${ide.name}   ${statusStr}${noteStr}`,
-    };
-  });
-};
-
-const verifyIDE = (ide) => {
-  const platform = process.platform;
-
-  if (ide.strategy === 'mac-app' && ide.mac) {
-    // Mac — confirm .app exists and try to read version from plist
-    const appPath = `/Applications/${ide.mac.app}.app`;
-    if (!fs.existsSync(appPath) && !fs.existsSync(path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`))) {
-      return { ok: false };
-    }
-    try {
-      const version = execSync(
-        `defaults read "/Applications/${ide.mac.app}.app/Contents/Info.plist" CFBundleShortVersionString`,
-        { stdio: 'pipe', encoding: 'utf8' }
-      ).trim();
-      return { ok: true, version };
-    } catch {
-      return { ok: true, version: null };
-    }
-  }
-
-  // Windows exe / Linux path / CLI — try --version
-  try {
-    const cmd = ide.strategy === 'win-exe'
-      ? `"${(ide.win?.paths || []).map(expandWinPath).find(p => fs.existsSync(p))}"`
-      : ide.strategy === 'linux-path'
-        ? `"${(ide.linux?.paths || []).find(p => fs.existsSync(p))}"`
-        : `"${ide.cmd}"`;
-    const result  = execSync(`${cmd} --version`, { stdio: 'pipe', encoding: 'utf8' });
-    const version = result.split('\n')[0].trim();
-    return { ok: true, version };
-  } catch {
-    return { ok: false };
-  }
-};
-
-// ── Tracking structure ────────────────────────────────────────────────────────
+// ── Slot template ─────────────────────────────────────────────────────────────
 
 const emptySlot = () => ({
   branch:       null,
@@ -265,6 +49,8 @@ const emptySlot = () => ({
   missingCount: 0,
   worktreePath: null,
 });
+
+// ── Generate tracking structure ───────────────────────────────────────────────
 
 const generateTrackingStructure = (config) => {
   const bt = config.backend?.type;
@@ -298,628 +84,559 @@ const generateTrackingStructure = (config) => {
   return structure;
 };
 
-// ── GitHub remote setup ───────────────────────────────────────────────────────
+// ── Load tracking ─────────────────────────────────────────────────────────────
 
-const detectGitHubUser = () => {
+const loadTracking = (ROOT, config) => {
+  const trackingPath = path.join(ROOT, '.scaffold', '.tracking.json');
+
+  if (!fs.existsSync(trackingPath)) {
+    console.log(dim('  ℹ Tracking file not found — regenerating from config.'));
+    const fresh = generateTrackingStructure(config);
+    fs.writeFileSync(trackingPath, JSON.stringify(fresh, null, 2), 'utf8');
+    return fresh;
+  }
+
   try {
-    return execSync('gh api user --jq .login',
-      { encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-  try {
-    return execSync('git config user.name',
-      { encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-  return null;
-};
-
-const setupUserRemote = (ROOT, projectName) => {
-  let currentOrigin = null;
-  try {
-    currentOrigin = execSync('git remote get-url origin',
-      { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-
-  // Already has their own remote — nothing to do
-  if (currentOrigin && !currentOrigin.includes('multi-agents-template')) return;
-
-  // Demote template origin to upstream
-  if (currentOrigin?.includes('multi-agents-template')) {
-    try {
-      execSync('git remote remove origin', { cwd: ROOT, stdio: 'pipe' });
-      execSync(`git remote add upstream ${currentOrigin}`, { cwd: ROOT, stdio: 'pipe' });
-      console.log(dim('  ℹ Template remote moved to upstream'));
-    } catch {}
-  }
-
-  // Write flag — agent will handle remote setup on first session
-  const flagPath = path.join(ROOT, '.scaffold', '.remote-setup-needed');
-  fs.writeFileSync(flagPath, JSON.stringify({
-    projectName,
-    createdAt: new Date().toISOString(),
-  }), 'utf8');
-
-  console.log(`\n  ${yellow('ℹ No remote configured.')} Your first agent session will set this up.`);
-  console.log(dim('  All work stays local until then.\n'));
-};
-
-// ── Readline ──────────────────────────────────────────────────────────────────
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
-
-const ask = (question) =>
-  new Promise((resolve) => rl.question(question, (a) => resolve(a.trim())));
-
-// ── Selection helpers ─────────────────────────────────────────────────────────
-
-const showList = (items, showSkip = false) => {
-  items.forEach((item, i) => {
-    const label = typeof item === 'string' ? item : item.label;
-    console.log(`  ${dim(`${i + 1}.`)} ${label}`);
-  });
-  if (showSkip) console.log(`  ${dim('0.')} Skip ${dim('(agent will propose when needed)')}`);
-};
-
-const selectRequired = async (prompt, items) => {
-  while (true) {
-    console.log(`\n${bold(prompt)}`);
-    showList(items);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(1-${items.length})`)}: `);
-    const index = parseInt(input) - 1;
-    if (!isNaN(index) && index >= 0 && index < items.length) return items[index];
-    console.log(yellow(`  Please enter a number between 1 and ${items.length}.`));
+    return JSON.parse(fs.readFileSync(trackingPath, 'utf8'));
+  } catch {
+    console.log(yellow('  ⚠ .tracking.json is corrupt — regenerating.'));
+    const fresh = generateTrackingStructure(config);
+    fs.writeFileSync(trackingPath, JSON.stringify(fresh, null, 2), 'utf8');
+    return fresh;
   }
 };
 
-const selectOptional = async (prompt, items) => {
-  if (!items || items.length === 0) return null;
-  while (true) {
-    console.log(`\n${bold(prompt)}`);
-    showList(items, true);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
-    if (input === '0' || input === '') return null;
-    const index = parseInt(input) - 1;
-    if (!isNaN(index) && index >= 0 && index < items.length) {
-      return typeof items[index] === 'string' ? items[index] : items[index].value;
-    }
-    console.log(yellow(`  Invalid selection. Please enter a number between 0 and ${items.length}.`));
-  }
+// ── Write tracking slot ───────────────────────────────────────────────────────
+
+const updateTrackingSlot = (tracking, scope, agent, data, ROOT) => {
+  if (!tracking[scope]) tracking[scope] = {};
+  if (!tracking[scope][agent]) tracking[scope][agent] = emptySlot();
+
+  tracking[scope][agent] = { ...tracking[scope][agent], ...data };
+
+  const trackingPath = path.join(ROOT, '.scaffold', '.tracking.json');
+  fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
+  return tracking;
 };
 
-const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
+// ── Clear tracking slot ───────────────────────────────────────────────────────
 
-// ── Config writer ─────────────────────────────────────────────────────────────
+const clearTrackingSlot = (tracking, scope, agent, ROOT) => {
+  if (!tracking[scope] || !tracking[scope][agent]) return tracking;
 
-const writeConfig = (filePath, configs) => {
-  if (!fs.existsSync(filePath)) return;
-  let content = fs.readFileSync(filePath, 'utf8');
+  // Preserve missingCount across completes — reset to 0 only on successful complete
+  tracking[scope][agent] = emptySlot();
 
-  for (const [key, value] of Object.entries(configs)) {
-    if (!value) continue;
-    const regex = new RegExp(`(# @config ${key}\\s*:)([^\\n]*)`, 'g');
-    content = content.replace(regex, `$1 ${value}`);
-  }
-
-  for (const [key, value] of Object.entries(configs)) {
-    if (!value) continue;
-    const token = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    content = content.replace(token, value);
-  }
-
-  fs.writeFileSync(filePath, content, 'utf8');
+  const trackingPath = path.join(ROOT, '.scaffold', '.tracking.json');
+  fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
+  return tracking;
 };
 
-const ensureGitignore = (entry) => {
-  const p = path.join(ROOT, '.gitignore');
-  const content = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
-  if (!content.includes(entry)) fs.appendFileSync(p, `\n${entry}\n`);
+// ── Validate config fields ────────────────────────────────────────────────────
+
+const REQUIRED_CRITICAL = ['projectName', 'ide', 'client'];
+const REQUIRED_BACKFILL = {
+  'ide.openArgs':    [],
+  'ide.winPaths':    [],
+  'ide.linuxPaths':  [],
 };
 
-const summaryLine = (label, value) => {
-  const padded = label.padEnd(20);
-  if (!value) {
-    console.log(`  ${dim(padded)}: ${yellow('(skipped - agent will propose when needed)')}`);
-  } else {
-    console.log(`  ${dim(padded)}: ${green(value)}`);
-  }
-};
+const validateConfig = (config, ROOT) => {
+  const errors   = [];
+  const backfilled = [];
 
-// ── Copy directory ────────────────────────────────────────────────────────────
-
-const copyDir = (src, dest) => {
-  if (!fs.existsSync(src)) return;
-  fs.mkdirSync(dest, { recursive: true });
-  fs.readdirSync(src).forEach(file => {
-    const srcFile  = path.join(src, file);
-    const destFile = path.join(dest, file);
-    if (fs.statSync(srcFile).isDirectory()) {
-      copyDir(srcFile, destFile);
-    } else {
-      fs.copyFileSync(srcFile, destFile);
-    }
-  });
-};
-
-// ── Main ──────────────────────────────────────────────────────────────────────
-
-const main = async () => {
-
-  // ── Lock check ───────────────────────────────────────────────────────────────
-
-  if (fs.existsSync(LOCK_FILE)) {
-    const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
-    const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
-
-    console.log(`\n${yellow('  This project has already been initialized.')}`);
-    console.log(dim(`  Initialized on: ${ts}\n`));
-    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
-    console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
-    console.log(`  ${dim('3.')} Exit\n`);
-
-    const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
-
-    if (choice === '1') {
-      console.log('');
-      rl2.close();
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-        stdio: 'inherit',
-        cwd: ROOT,
-      });
-      child.on('exit', (code) => process.exit(code));
-      return;
-    } else if (choice === '2') {
-      console.log(yellow('\n  Resetting configuration...\n'));
-      fs.unlinkSync(LOCK_FILE);
-      const configPath = path.join(RUNTIME_DIR, '.config.json');
-      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
-      rl2.close();
-      console.log(green('  Reset complete. Re-running initialization...\n'));
-      // Fall through to run init again
-    } else {
-      console.log(dim('\n  Exited.\n'));
-      rl2.close();
-      return;
-    }
+  // Critical fields — hard stop if missing
+  for (const field of REQUIRED_CRITICAL) {
+    if (!config[field]) errors.push(field);
   }
 
-  console.log('\n');
-  console.log(bold(cyan('  Multi-Agent Monorepo Template')));
-  console.log(dim('  Project Initializer\n'));
-  separator();
-
-  console.log(`\n${bold('Let\'s configure your project.')}`);
-  console.log(dim('  Required fields must be selected. Optional fields can be skipped (press 0 or Enter).\n'));
-  console.log(dim('  Skipped fields will be resolved by the agent when first needed.\n'));
-
-  // ── Project name ────────────────────────────────────────────────────────────
-
-  let projectName = '';
-  while (!projectName) {
-    projectName = await ask(`${bold('* Project name')}: `);
-    if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
-  }
-
-  separator();
-
-  // ── Client ──────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('Client configuration'))}`);
-
-  const clientFw    = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
-  const clientLang  = clientFw.language;
-  const clientState = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
-  const clientUi    = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
-  const clientStyle = await selectOptional('Styling:', STYLING_OPTIONS);
-
-  separator();
-
-  // ── Backend ─────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('Backend configuration'))}`);
-
-  // Check if client framework has integrated backend support
-  let useIntegratedBackend = false;
-  let backendFw   = null;
-  let backendLang = null;
-  let backendOrm  = null;
-  let backendAuth = null;
-  let backendType = null;
-
-  if (clientFw.integratedBackend) {
-    console.log(dim(`  ${clientFw.value} supports server-side rendering and API routes.\n`));
-    const integratedAnswer = await ask(`  ${bold('Use integrated backend')} ${dim(`(${clientFw.value} API routes/SSR)`)} ${dim('instead of a separate backend? (y/n)')}: `);
-    useIntegratedBackend = integratedAnswer.toLowerCase() === 'y';
-
-    if (useIntegratedBackend) {
-      backendType = 'integrated';
-      console.log(dim(`\n  Using ${clientFw.value} integrated backend. No separate backend needed.\n`));
-    }
-  }
-
-  if (!useIntegratedBackend) {
-    console.log(dim('  You can skip the backend framework and decide later.\n'));
-
-    const backendFwObj = await (async () => {
-      console.log(`\n${bold('Backend framework:')}`);
-      showList(BACKEND_FRAMEWORKS, true);
-      const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
-      if (input === '0' || input === '') return null;
-      const index = parseInt(input) - 1;
-      if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
-      return BACKEND_FRAMEWORKS[index];
-    })();
-
-    backendFw   = backendFwObj ? backendFwObj.value    : null;
-    backendLang = backendFwObj ? backendFwObj.language : null;
-    backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
-    backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
-    backendType = backendFw ? 'separate' : null;
-  }
-
-  separator();
-
-  // ── Environment ─────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('Environment'))}`);
-
-  const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[process.platform] || process.platform;
-  console.log(`\n  ${dim('OS detected:')} ${bold(osName)}`);
-  console.log(dim('  Scanning for installed IDEs...\n'));
-
-  const ideOptions = buildIDEOptions();
-
-  const detectedIDEs  = ideOptions.filter(o => o.detected);
-  const undetectedIDEs = ideOptions.filter(o => !o.detected && o.cmd);
-  const manualOption  = ideOptions.filter(o => !o.cmd);
-
-  // Detected first → undetected → manual
-  const sortedIdeOptions = [...detectedIDEs, ...undetectedIDEs, ...manualOption];
-
-  if (detectedIDEs.length > 1) {
-    console.log(`\n  ${yellow('Multiple IDEs found on this machine')} — select your preference:\n`);
-  } else if (detectedIDEs.length === 1) {
-    console.log(`\n  ${green(`1 IDE found:`)} ${bold(detectedIDEs[0].name)}\n`);
-  } else {
-    console.log(`\n  ${yellow('No IDEs detected on this machine.')}\n`);
-  }
-
-  let ideChoice;
-  while (true) {
-    ideChoice = await selectRequired('* IDE / editor (required):', sortedIdeOptions);
-
-    // ── Confirmation ──────────────────────────────────────────────────────────
-    console.log(`\n  Selected: ${bold(ideChoice.name)}`);
-    if (ideChoice.cmd && !ideChoice.detected) {
-      console.log(yellow(`  ⚠ ${ideChoice.name} was not detected on PATH. It may not open automatically.`));
-    }
-    const confirmIde = await ask(`  ${bold('Confirm this selection?')} ${dim('(y/n)')}: `);
-    if (confirmIde.toLowerCase() !== 'y') {
-      console.log(dim('  Re-selecting...\n'));
-      continue;
-    }
-
-    // ── Double-check ──────────────────────────────────────────────────────────
-    if (!ideChoice.cmd) {
-      // Manual — no verification needed
-      console.log(dim('  Manual mode — worktree path will be printed at launch.'));
-      break;
-    }
-
-    console.log(dim(`\n  Verifying ${ideChoice.name}...`));
-    const verified = verifyIDE(ideChoice);
-
-    if (verified.ok) {
-      const versionStr = verified.version ? dim(` (${verified.version})`) : '';
-      console.log(`  ${green('✓')} ${ideChoice.name} confirmed${versionStr}`);
-      break;
-    }
-
-    console.log(`  ${yellow('!')} Could not verify ${ideChoice.name}. The CLI may not be installed or accessible.`);
-    const proceedAnyway = await ask(`  ${bold('Continue with this IDE anyway?')} ${dim('(y/n)')}: `);
-    if (proceedAnyway.toLowerCase() === 'y') break;
-    console.log(dim('  Re-selecting...\n'));
-  }
-
-  separator();
-
-  // ── Summary ─────────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold('Review your configuration:')}\n`);
-  summaryLine('Project',           projectName);
-  summaryLine('Client framework',  clientFw.value);
-  summaryLine('Client language',   clientLang);
-  summaryLine('State management',  clientState);
-  summaryLine('UI library',        clientUi);
-  summaryLine('Styling',           clientStyle);
-  summaryLine('Backend type',     backendType === 'integrated' ? `${clientFw.value} integrated` : backendFw || '(skipped)');
-  if (backendType !== 'integrated') {
-    summaryLine('Backend language',  backendLang);
-    summaryLine('ORM',               backendOrm);
-    summaryLine('Auth',              backendAuth);
-  }
-  summaryLine('IDE / Editor',      ideChoice.name);
-
-  console.log('');
-  console.log(dim('  y = confirm  |  n = abort  |  e = edit (start over)\n'));
-  const confirm = await ask(`${bold('Confirm and write to config files?')} ${dim('(y/n/e)')}: `);
-
-  if (confirm.toLowerCase() === 'e') {
-    console.log(yellow('\n  Restarting configuration...\n'));
-    rl.close();
-    const { spawn } = require('child_process');
-    const child = spawn('node', [__filename], { stdio: 'inherit', cwd: ROOT });
-    child.on('exit', (code) => process.exit(code));
-    return;
-  }
-
-  if (confirm.toLowerCase() !== 'y') {
-    console.log(yellow('\n  Aborted. No files were changed.\n'));
-    rl.close();
-    return;
-  }
-
-  // ── Write configs ────────────────────────────────────────────────────────────
-
-  separator();
-  console.log(`\n${bold('Setting up your project...')}\n`);
-
-  // ── Clone multi-agents-core ──────────────────────────────────────────────────
-
-  const CORE_REPO = 'https://github.com/JDev-il/multi-agents-core.git';
-  const CORE_DIR  = path.join(ROOT, '.agents-core');
-
-  console.log(`  Fetching templates...`);
-  try {
-    execSync(`git clone "${CORE_REPO}" "${CORE_DIR}"`, { stdio: 'pipe' });
-    console.log(`  ${green('✓')} Templates fetched`);
-  } catch (err) {
-    console.log(`  ${red('✗')} Failed to fetch templates. Check your internet connection.`);
-    rl.close();
+  if (errors.length > 0) {
+    console.log(`\n${red('  Config is missing critical fields:')} ${errors.join(', ')}`);
+    console.log(dim('  Run npm run init to regenerate.\n'));
     process.exit(1);
   }
 
-  const TEMPLATES = path.join(CORE_DIR, 'templates');
+  // Non-critical fields — backfill with defaults
+  for (const [fieldPath, defaultVal] of Object.entries(REQUIRED_BACKFILL)) {
+    const parts  = fieldPath.split('.');
+    let   target = config;
+    let   parent = null;
+    let   key    = null;
 
-  copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
-  copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
-  if (backendType === 'separate') {
-    copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
-  }
-  fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
-  fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
-  console.log(`  ${green('✓')} Templates copied`);
+    for (const part of parts) {
+      parent = target;
+      key    = part;
+      target = target?.[part];
+    }
 
-  // ── Copy workflow scripts ────────────────────────────────────────────────────
-
-  const WORKFLOW_SRC  = path.join(CORE_DIR, 'workflow');
-  const WORKFLOW_DEST = path.join(ROOT, '.workflow');
-  fs.mkdirSync(WORKFLOW_DEST, { recursive: true });
-  copyDir(WORKFLOW_SRC, WORKFLOW_DEST);
-  console.log(`  ${green('✓')} Workflow scripts copied (.workflow/)`);
-
-  execSync(`rm -rf "${CORE_DIR}"`);
-  console.log(`  ${green('✓')} Temporary files cleaned up`);
-
-  // ── Write @config values ─────────────────────────────────────────────────────
-
-  writeConfig(path.join(ROOT, 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    PROJECT_ROOT: projectName,
-  });
-  console.log(`  ${green('✓')} CLAUDE.md configured`);
-
-  writeConfig(path.join(ROOT, 'client', 'CLAUDE.md'), {
-    PROJECT_NAME: projectName,
-    FRAMEWORK:    clientFw.value,
-    LANGUAGE:     clientLang,
-    STATE:        clientState,
-    UI_LIBRARY:   clientUi,
-    STYLING:      clientStyle,
-  });
-  console.log(`  ${green('✓')} client/CLAUDE.md configured`);
-
-  if (backendType === 'separate') {
-    writeConfig(path.join(ROOT, 'backend', 'CLAUDE.md'), {
-      PROJECT_NAME: projectName,
-      FRAMEWORK:    backendFw,
-      LANGUAGE:     backendLang,
-      ORM:          backendOrm,
-      AUTH:         backendAuth,
-    });
-    console.log(`  ${green('✓')} backend/CLAUDE.md configured`);
+    if (target === undefined && parent && key) {
+      parent[key] = defaultVal;
+      backfilled.push(fieldPath);
+    }
   }
 
-  ensureGitignore('worktrees/');
-  ensureGitignore('.agents-core/');
-  ensureGitignore('.scaffold/');
-  ensureGitignore('.workflow/');
-
-  // Remove template-specific gitignore entries so generated files can be committed
-  const gitignorePath = path.join(ROOT, '.gitignore');
-  let gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
-  ['client/', 'backend/', 'shared/', 'CLAUDE.md', 'CONTRACTS.md', 'BUILD_STATE.md'].forEach(entry => {
-    gitignoreContent = gitignoreContent.replace(`\n${entry}`, '');
-    gitignoreContent = gitignoreContent.replace(`${entry}\n`, '');
-    gitignoreContent = gitignoreContent.replace(entry, '');
-  });
-  fs.writeFileSync(gitignorePath, gitignoreContent.trim() + '\n', 'utf8');
-  console.log(`  ${green('✓')} .gitignore updated`);
-
-  // ── Write .config.json ───────────────────────────────────────────────────────
-
-  const config = {
-    projectName,
-    ide: {
-      name:       ideChoice.name,
-      strategy:   ideChoice.strategy,
-      cmd:        ideChoice.cmd    || null,
-      app:        ideChoice.mac?.app  || null,
-      openArgs:   process.platform === 'darwin' ? (ideChoice.mac?.args  || [])
-                : process.platform === 'win32'  ? (ideChoice.win?.args  || [])
-                :                                 (ideChoice.linux?.args || []),
-      winPaths:   (ideChoice.win?.paths  || []).map(expandWinPath),
-      linuxPaths: ideChoice.linux?.paths || [],
-    },
-    client: {
-      framework: clientFw.value,
-      language:  clientLang,
-      state:     clientState,
-      uiLibrary: clientUi,
-      styling:   clientStyle,
-    },
-    backend: {
-      type:      backendType,
-      framework: backendFw,
-      language:  backendLang,
-      orm:       backendOrm,
-      auth:      backendAuth,
-    },
-  };
-
-  fs.writeFileSync(
-    path.join(RUNTIME_DIR, '.config.json'),
-    JSON.stringify(config, null, 2),
-    'utf8'
-  );
-  console.log(`  ${green('✓')} .scaffold/.config.json written`);
-
-  // ── Generate BUILD_STATE.md ──────────────────────────────────────────────────
-
-  const backendDisplay = backendType === 'integrated'
-    ? `${clientFw.value} integrated (API routes/SSR)`
-    : backendFw || 'Not configured';
-
-  const clientStack = [clientFw.value, clientLang, clientStyle, clientUi, clientState]
-    .filter(Boolean).join(' + ');
-
-  const backendStack = backendType === 'separate'
-    ? [backendFw, backendLang, backendOrm, backendAuth].filter(Boolean).join(' + ')
-    : backendDisplay;
-
-  const buildState = `# BUILD_STATE.md
-# Living project state. Read before every task. Update after completion.
-# Every agent must read this file at session start.
-
-## Project
-Name      : ${projectName}
-Initialized : ${new Date().toISOString()}
-
-## Stack
-Client  : ${clientStack}
-Backend : ${backendStack}
-
-## Client State
-- [ ] Scaffold - framework initialized
-- [ ] UI - components and layout
-- [ ] LOGIC - state management and API client
-- [ ] FORMS - form architecture
-- [ ] ROUTING - route definitions
-- [ ] TESTING - test suite
-- [ ] ACCESSIBILITY - a11y compliance
-
-## Backend State
-${backendType === 'integrated'
-  ? `Type: ${clientFw.value} integrated backend (API routes / SSR)
-- [ ] API routes - server-side endpoints
-- [ ] Auth - authentication strategy
-- [ ] DB - data layer if needed`
-  : backendType === 'separate'
-  ? `Type: Separate backend (${backendFw})
-- [ ] Scaffold - framework initialized
-- [ ] DB - schema and entities
-- [ ] API - endpoints and DTOs
-- [ ] AUTH - authentication strategy
-- [ ] LOGIC - business rules
-- [ ] EVENTS - webhooks and queues
-- [ ] JOBS - background tasks`
-  : 'Not configured - run node .workflow/launch.js and select backend when ready'}
-
-## Shared
-- [ ] CONTRACTS.md - no shared types defined yet
-
-## Dependency Rules
-Before starting any task, verify:
-- Client LOGIC requires: Client scaffold done
-- Client FORMS requires: Client scaffold done
-- Client ROUTING requires: Client scaffold done
-- API calls in client require: Backend API endpoints done OR mocked
-- Backend API requires: DB schema done (if using DB)
-- Backend AUTH requires: DB User entity done
-- Any cross-boundary types: Must exist in CONTRACTS.md first
-
-If a dependency is not met:
-  DEPENDENCY NOT MET - surface what is missing and propose options.
-  Never proceed silently on a missing dependency.
-
-## Agent Log
-| Date | Agent | Scope | Task | Status | Branch |
-|------|-------|-------|------|--------|--------|
-`;
-
-  fs.writeFileSync(path.join(ROOT, 'BUILD_STATE.md'), buildState, 'utf8');
-  console.log(`  ${green('✓')} BUILD_STATE.md generated`);
-
-  // ── Tracking ──────────────────────────────────────────────────────────────────
-
-  const trackingPath = path.join(RUNTIME_DIR, '.tracking.json');
-  if (!fs.existsSync(trackingPath)) {
-    const trackingStructure = generateTrackingStructure(config);
-    fs.writeFileSync(trackingPath, JSON.stringify(trackingStructure, null, 2), 'utf8');
-    console.log(`  ${green('✓')} .tracking.json generated`);
-  } else {
-    console.log(dim('  ℹ .tracking.json already exists — preserved'));
+  if (backfilled.length > 0) {
+    console.log(dim(`  ℹ Config backfilled: ${backfilled.join(', ')}`));
+    // Write updated config back
+    const configPath = path.join(ROOT, '.scaffold', '.config.json');
+    try {
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    } catch { /* best-effort */ }
   }
 
-  // ── Lock ─────────────────────────────────────────────────────────────────────
-
-  fs.writeFileSync(LOCK_FILE, new Date().toISOString());
-  console.log(`  ${green('✓')} Initialization locked`);
-
-  // ── Auto-commit ───────────────────────────────────────────────────────────────
-
-  try {
-    execSync('git add .', { cwd: ROOT, stdio: 'pipe' });
-    execSync('git commit -m "init: project configuration"', { cwd: ROOT, stdio: 'pipe' });
-    console.log(`  ${green('✓')} Project configuration committed`);
-  } catch (err) {
-    console.log(`  ${yellow('!')} Could not auto-commit. Run manually:`);
-    console.log(dim('     git add . && git commit -m "init: project configuration"'));
-  }
-
-  // ── Remote setup ─────────────────────────────────────────────────────────────
-
-  setupUserRemote(ROOT, projectName);
-
-  // ── Chain to launch.js ────────────────────────────────────────────────────────
-
-  separator();
-  console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
-
-  const launchInput = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n — default: n)')}: `);
-  const launch = launchInput.toLowerCase() || 'n';
-
-  if (launch === 'y') {
-    rl.close();
-    console.log('');
-    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-      stdio: 'inherit',
-      cwd: ROOT,
-    });
-    child.on('exit', (code) => process.exit(code));
-  } else {
-    console.log('');
-    console.log(`  ${bold('When ready, run:')}`); 
-    console.log(`  ${cyan('npm run launch')}\n`);
-    separator();
-    console.log('');
-    rl.close();
-  }
+  return config;
 };
 
-main().catch((err) => {
-  console.error('\n  Error:', err.message);
-  process.exit(1);
-});
+// ── Check agent active ────────────────────────────────────────────────────────
+
+const checkAgentActive = (tracking, scope, agent) => {
+  const slot = tracking?.[scope]?.[agent];
+  if (!slot || slot.status !== 'ACTIVE') return { active: false, slot: null };
+  return { active: true, slot };
+};
+
+// ── Active worktree branches (path-verified) ──────────────────────────────────
+
+const getActiveWorktrees = (ROOT) => {
+  try {
+    const output = execSync('git worktree list --porcelain', { cwd: ROOT, stdio: 'pipe' }).toString();
+    const worktrees = [];
+    const blocks = output.trim().split('\n\n');
+    for (const block of blocks) {
+      const lines      = block.split('\n');
+      const pathLine   = lines.find(l => l.startsWith('worktree '));
+      const branchLine = lines.find(l => l.startsWith('branch '));
+      if (pathLine && branchLine) {
+        const wtPath   = pathLine.replace('worktree ', '').trim();
+        const wtBranch = branchLine.replace('branch refs/heads/', '').trim();
+        if (fs.existsSync(wtPath)) worktrees.push({ path: wtPath, branch: wtBranch });
+      }
+    }
+    return worktrees;
+  } catch { return []; }
+};
+
+// ── Coexistence check ─────────────────────────────────────────────────────────
+
+const coexistenceCheck = (branch, ROOT) => {
+  const result = {
+    remoteExists:    false,
+    unmergedCommits: 0,
+    divergenceCount: 0,
+    conflictFiles:   [],
+    prerequisites:   {},
+  };
+
+  // Check remote branch exists
+  try {
+    const remote = execSync(
+      `git ls-remote --heads origin ${branch}`,
+      { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }
+    ).trim();
+    result.remoteExists = remote.length > 0;
+  } catch { return result; }
+
+  if (!result.remoteExists) return result;
+
+  // Fetch remote branch
+  try {
+    execSync(`git fetch origin ${branch}`, { cwd: ROOT, stdio: 'pipe' });
+  } catch { return result; }
+
+  // Unmerged commits on branch
+  try {
+    const commits = execSync(
+      `git log main..origin/${branch} --oneline`,
+      { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }
+    ).trim();
+    result.unmergedCommits = commits ? commits.split('\n').length : 0;
+  } catch {}
+
+  // How many commits is main ahead of branch
+  try {
+    const ahead = execSync(
+      `git log origin/${branch}..main --oneline`,
+      { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }
+    ).trim();
+    result.divergenceCount = ahead ? ahead.split('\n').length : 0;
+  } catch {}
+
+  // File overlap — files changed in both branch and main since divergence
+  if (result.divergenceCount > 0) {
+    try {
+      const branchFiles = execSync(
+        `git diff main...origin/${branch} --name-only`,
+        { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }
+      ).trim().split('\n').filter(Boolean);
+
+      const mainFiles = execSync(
+        `git log origin/${branch}..main --name-only --format=`,
+        { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' }
+      ).trim().split('\n').filter(Boolean);
+
+      const mainSet = new Set(mainFiles);
+      result.conflictFiles = branchFiles.filter(f => mainSet.has(f));
+    } catch {}
+  }
+
+  return result;
+};
+
+// ── Recovery guidance generator ───────────────────────────────────────────────
+
+const generateRecoveryGuidance = (branch, coexistence) => {
+  const lines = [];
+
+  lines.push('## Recovery Notes');
+  lines.push('');
+  lines.push('This workspace was recovered from a missing worktree.');
+  lines.push('Complete the following steps before implementing anything:');
+  lines.push('');
+  lines.push('### Step 1 — Pull main into this branch');
+  lines.push('```');
+  lines.push('git pull origin main');
+  lines.push('```');
+
+  if (coexistence.conflictFiles.length > 0) {
+    lines.push('');
+    lines.push('### Step 2 — Resolve conflicts in this order');
+    coexistence.conflictFiles.forEach(file => {
+      if (file.includes('CONTRACTS.md')) {
+        lines.push(`- **${file}**: Keep all types added since this branch was created.`);
+        lines.push('  Merge your proposed types alongside them — do not overwrite.');
+      } else if (file.includes('Providers')) {
+        lines.push(`- **${file}**: Rewired since this branch was created.`);
+        lines.push('  Adapt your hooks to consume the new provider shape.');
+      } else {
+        lines.push(`- **${file}**: Modified since this branch was created.`);
+        lines.push('  Preserve changes from main — adapt your work accordingly.');
+      }
+    });
+  }
+
+  lines.push('');
+  lines.push('### Do NOT');
+  lines.push('- Force push this branch');
+  lines.push('- Start new implementation before git status is clean');
+  lines.push('- Overwrite types in CONTRACTS.md added by other agents');
+  lines.push('');
+  lines.push('---');
+
+  return lines.join('\n');
+};
+
+// ── MISSING gate ──────────────────────────────────────────────────────────────
+
+const runMissingGate = async (params) => {
+  const { scope, agent, slot, tracking, config, ROOT, ask } = params;
+  const { branch, timestamp, missingCount } = slot;
+
+  separator();
+  console.log(`\n${yellow(`  ⚠ ${scope.toUpperCase()} / ${agent} workspace is missing`)}\n`);
+  console.log(`  ${dim('Branch')}   : ${branch}`);
+  console.log(`  ${dim('Created')}  : ${slot.launchedAt ? new Date(slot.launchedAt).toLocaleString() : 'unknown'}`);
+
+  // Run coexistence check
+  console.log(dim('\n  Checking remote and coexistence...\n'));
+  const coexistence = coexistenceCheck(branch, ROOT);
+
+  // Display coexistence results
+  if (!coexistence.remoteExists) {
+    console.log(`  ${dim('Remote')}   : ${red('not found — branch was deleted remotely')}`);
+  } else {
+    console.log(`  ${dim('Remote')}   : ${green('exists')} — ${coexistence.unmergedCommits} unmerged commit(s)`);
+  }
+
+  if (coexistence.divergenceCount > 0) {
+    console.log(`  ${dim('Divergence')}: ${yellow(`main is ${coexistence.divergenceCount} commit(s) ahead`)}`);
+  } else {
+    console.log(`  ${dim('Divergence')}: ${green('none — branch is up to date with main')}`);
+  }
+
+  if (coexistence.conflictFiles.length > 0) {
+    console.log(`  ${dim('Conflicts')} : ${red(coexistence.conflictFiles.length + ' file(s) overlap with main changes:')}`);
+    coexistence.conflictFiles.forEach(f => console.log(`     ${dim('→')} ${f}`));
+  } else if (coexistence.remoteExists) {
+    console.log(`  ${dim('Conflicts')} : ${green('none detected')}`);
+  }
+
+  if (missingCount > 0) {
+    console.log(`\n  ${yellow(`ℹ This agent has been missing ${missingCount} time(s) before.`)}`);
+  }
+
+  // Present options
+  separator();
+  console.log(`\n  ${bold('What would you like to do?')}\n`);
+
+  if (coexistence.remoteExists) {
+    console.log(`  ${dim('1.')} ${bold('Recover')}  — restore workspace from remote branch`);
+    console.log(`     ${dim('→')} Your ${coexistence.unmergedCommits} commit(s) will be available to continue`);
+    if (coexistence.divergenceCount > 0) {
+      console.log(`     ${yellow(`⚠ ${coexistence.divergenceCount} commit(s) to reconcile — conflicts likely in ${coexistence.conflictFiles.length} file(s)`)}`);
+    }
+    console.log('');
+    console.log(`  ${dim('2.')} ${bold('Reset')}    — delete branch locally and remotely, start fresh`);
+    console.log(`     ${red('⚠ All ' + coexistence.unmergedCommits + ' commit(s) will be permanently lost')}`);
+    console.log('');
+    console.log(`  ${dim('3.')} ${bold('New task')} — create a new ${agent} branch, leave remote unresolved`);
+    console.log(`     ${yellow('⚠ 2 unmerged ' + agent + ' branches will exist')}`);
+    console.log(`     ${dim('Only recommended for a genuinely separate concern')}`);
+  } else {
+    // Remote doesn't exist — only reset or new task
+    console.log(`  ${dim('1.')} ${bold('Reset')}    — clear this tracking entry, start fresh`);
+    console.log(`     ${dim('→')} Remote branch is already gone — no data loss`);
+    console.log('');
+    console.log(`  ${dim('2.')} ${bold('New task')} — create a new ${agent} branch`);
+    console.log(`     ${dim('→')} Tracking entry will be replaced`);
+  }
+
+  const maxOption = coexistence.remoteExists ? 3 : 2;
+  let choice;
+  while (!choice) {
+    const input = await ask(`\n  ${bold(`Select (1-${maxOption})`)}: `);
+    const n = parseInt(input);
+    if (!isNaN(n) && n >= 1 && n <= maxOption) choice = n;
+    else console.log(yellow(`  Please enter a number between 1 and ${maxOption}.`));
+  }
+
+  // ── Handle: Recover ─────────────────────────────────────────────────────────
+
+  if (coexistence.remoteExists && choice === 1) {
+    separator();
+    console.log(`\n${bold('Recovering workspace...')}\n`);
+
+    const sanitizedName = config.projectName.toLowerCase().replace(/\s+/g, '-');
+    const worktreeName  = `${scope}-${sanitizedName}-${agent.toLowerCase()}-${timestamp}`;
+    const worktreePath  = path.join(ROOT, 'worktrees', worktreeName);
+
+    try {
+      // Check if local branch exists
+      try {
+        execSync(`git show-ref --verify --quiet refs/heads/${branch}`, { cwd: ROOT, stdio: 'pipe' });
+        execSync(`git worktree add "${worktreePath}" ${branch}`, { cwd: ROOT, stdio: 'pipe' });
+      } catch {
+        // Local branch gone — create from remote
+        execSync(`git worktree add "${worktreePath}" -b ${branch} origin/${branch}`, { cwd: ROOT, stdio: 'pipe' });
+      }
+      console.log(`  ${green('✓')} Workspace restored at: worktrees/${worktreeName}`);
+    } catch (err) {
+      console.log(`  ${red('✗')} Could not restore workspace: ${err.message}`);
+      console.log(dim('  Try manually: git worktree add worktrees/' + worktreeName + ' ' + branch));
+      return { action: 'failed' };
+    }
+
+    // Append recovery guidance to TASK.md
+    const taskMdPath = path.join(worktreePath, 'TASK.md');
+    if (fs.existsSync(taskMdPath)) {
+      const guidance = generateRecoveryGuidance(branch, coexistence);
+      fs.appendFileSync(taskMdPath, `\n${guidance}\n`, 'utf8');
+      console.log(`  ${green('✓')} Recovery guidance appended to TASK.md`);
+    }
+
+    // Show best-practice summary
+    console.log(`\n${bold('Before implementing — complete these steps:')}\n`);
+    console.log(`  ${bold('1.')} Pull main into this branch:`);
+    console.log(`     ${cyan('git pull origin main')}\n`);
+    if (coexistence.conflictFiles.length > 0) {
+      console.log(`  ${bold('2.')} Resolve conflicts in: ${coexistence.conflictFiles.join(', ')}`);
+      console.log(dim('     See Recovery Notes in TASK.md for file-specific guidance\n'));
+    }
+    console.log(`  ${yellow('⚠ Do NOT start new implementation until git status is clean.')}\n`);
+
+    // Update tracking slot — back to ACTIVE
+    updateTrackingSlot(tracking, scope, agent, {
+      status:       'ACTIVE',
+      worktreePath,
+    }, ROOT);
+
+    return { action: 'recovered', worktreePath };
+  }
+
+  // ── Handle: Reset ──────────────────────────────────────────────────────────
+
+  const isReset = coexistence.remoteExists ? choice === 2 : choice === 1;
+
+  if (isReset) {
+    separator();
+    console.log(`\n${bold('Resetting...')}\n`);
+
+    // Delete local branch
+    try {
+      execSync(`git branch -D ${branch}`, { cwd: ROOT, stdio: 'pipe' });
+      console.log(`  ${green('✓')} Local branch deleted`);
+    } catch {
+      console.log(`  ${dim('!')} Local branch not found — skipping`);
+    }
+
+    // Delete remote branch
+    if (coexistence.remoteExists) {
+      try {
+        execSync(`git push origin --delete ${branch}`, { cwd: ROOT, stdio: 'pipe' });
+        console.log(`  ${green('✓')} Remote branch deleted`);
+      } catch {
+        console.log(`  ${yellow('!')} Could not delete remote branch — delete manually: git push origin --delete ${branch}`);
+      }
+    }
+
+    // Clear tracking slot
+    tracking[scope][agent] = emptySlot();
+    const trackingPath = path.join(ROOT, '.scaffold', '.tracking.json');
+    fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
+    console.log(`  ${green('✓')} Tracking entry cleared`);
+
+    // Update BUILD_STATE.md
+    const buildStatePath = path.join(ROOT, 'BUILD_STATE.md');
+    if (fs.existsSync(buildStatePath)) {
+      let content = fs.readFileSync(buildStatePath, 'utf8');
+      content = content.replace(
+        `| IN PROGRESS | ${branch} |`,
+        `| RESET       | ${branch} |`
+      );
+      content = content.replace(
+        `| MISSING     | ${branch} |`,
+        `| RESET       | ${branch} |`
+      );
+      fs.writeFileSync(buildStatePath, content, 'utf8');
+      try {
+        execSync('git add BUILD_STATE.md .scaffold/.tracking.json', { cwd: ROOT, stdio: 'pipe' });
+        execSync(`git commit -m "build: reset ${scope}/${agent} [${branch}]"`, { cwd: ROOT, stdio: 'pipe' });
+      } catch { /* best-effort */ }
+    }
+
+    console.log(`\n  ${green('✓')} Reset complete — proceeding to launch new ${agent} task.\n`);
+    return { action: 'reset' };
+  }
+
+  // ── Handle: New task ───────────────────────────────────────────────────────
+
+  console.log(dim('\n  Proceeding with new branch. Remote branch left unresolved.\n'));
+  return { action: 'new' };
+};
+
+// ── Reconcile stale worktrees ─────────────────────────────────────────────────
+
+const reconcileStaleWorktrees = (entries, tracking, ROOT) => {
+  const activeWorktrees = getActiveWorktrees(ROOT);
+  const activeBranches  = new Set(activeWorktrees.map(w => w.branch));
+
+  const stale = entries.filter(e =>
+    e.status === 'IN PROGRESS' &&
+    e.branch &&
+    !activeBranches.has(e.branch)
+  );
+
+  if (stale.length === 0) return entries;
+
+  const buildStatePath = path.join(ROOT, 'BUILD_STATE.md');
+  let content = fs.existsSync(buildStatePath)
+    ? fs.readFileSync(buildStatePath, 'utf8')
+    : '';
+
+  stale.forEach(e => {
+    content = content.replace(
+      `| IN PROGRESS | ${e.branch} |`,
+      `| MISSING     | ${e.branch} |`
+    );
+
+    // Update tracking slot missingCount
+    const scope = e.scope;
+    const agent = e.agent;
+    if (tracking?.[scope]?.[agent]) {
+      tracking[scope][agent].status       = 'MISSING';
+      tracking[scope][agent].missingCount = (tracking[scope][agent].missingCount || 0) + 1;
+    }
+  });
+
+  if (stale.length > 0 && fs.existsSync(buildStatePath)) {
+    fs.writeFileSync(buildStatePath, content, 'utf8');
+    const trackingPath = path.join(ROOT, '.scaffold', '.tracking.json');
+    fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
+
+    try {
+      execSync('git add BUILD_STATE.md .scaffold/.tracking.json', { cwd: ROOT, stdio: 'pipe' });
+      execSync('git commit -m "build: mark missing worktrees"', { cwd: ROOT, stdio: 'pipe' });
+    } catch { /* best-effort */ }
+  }
+
+  return entries.map(e =>
+    stale.find(s => s.branch === e.branch) ? { ...e, status: 'MISSING' } : e
+  );
+};
+
+// ── Browser opener ───────────────────────────────────────────────────────────
+
+const openBrowser = (url) => {
+  const platform = process.platform;
+  try {
+    if (platform === 'darwin') {
+      try {
+        execSync(`open "${url}"`, { stdio: 'pipe' });
+        return true;
+      } catch {}
+      const browsers = [
+        'Google Chrome', 'Safari', 'Firefox',
+        'Microsoft Edge', 'Arc', 'Brave Browser',
+      ];
+      for (const browser of browsers) {
+        if (fs.existsSync(`/Applications/${browser}.app`)) {
+          execSync(`open -a "${browser}" "${url}"`, { stdio: 'pipe' });
+          return true;
+        }
+      }
+    } else if (platform === 'win32') {
+      execSync(`start "" "${url}"`, { stdio: 'pipe' });
+      return true;
+    } else {
+      execSync(`xdg-open "${url}"`, { stdio: 'pipe' });
+      return true;
+    }
+  } catch {}
+  return false;
+};
+
+// ── Silent auth detection ─────────────────────────────────────────────────────
+
+const detectAuthMethod = (ROOT) => {
+  // 1. SSH
+  try {
+    const out = execSync('ssh -T git@github.com 2>&1', { stdio: 'pipe', encoding: 'utf8' });
+    if (out.includes('successfully authenticated')) return 'ssh';
+  } catch (e) {
+    // exit code 1 = authenticated (GitHub returns 1 for no shell access)
+    if (e.stdout?.includes('successfully authenticated') ||
+        e.stderr?.includes('successfully authenticated')) return 'ssh';
+  }
+
+  // 2. gh CLI
+  try {
+    execSync('gh auth status', { stdio: 'pipe' });
+    return 'gh';
+  } catch {}
+
+  // 3. HTTPS stored credentials
+  try {
+    execSync('git ls-remote https://github.com 2>/dev/null', {
+      cwd: ROOT, stdio: 'pipe', timeout: 5000,
+    });
+    return 'https';
+  } catch {}
+
+  return null;
+};
+
+// ── Exports ───────────────────────────────────────────────────────────────────
+
+module.exports = {
+  generateTrackingStructure,
+  loadTracking,
+  updateTrackingSlot,
+  clearTrackingSlot,
+  validateConfig,
+  checkAgentActive,
+  coexistenceCheck,
+  runMissingGate,
+  reconcileStaleWorktrees,
+  getActiveWorktrees,
+  openBrowser,
+  detectAuthMethod,
+};
