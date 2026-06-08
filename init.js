@@ -940,8 +940,8 @@ fi
   console.log(`${dim('     · Every task should start with npm run launch')}`);
   console.log(`${dim('     · Each agent works in a short, focused session')}`);
   console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
-  console.log(`${yellow('     ⚠ Committing directly to main bypasses the framework and')}`);
-  console.log(`${yellow('       breaks task tracking — always close tasks via npm run complete')}\n`);
+  console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
+  console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
 
   console.log(`  ${dim('2.')} ${bold('Hybrid')}`);
   console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
@@ -958,8 +958,8 @@ fi
         'Agent sessions load only task-relevant context, enabling reliable',
         'chaining, predictable behavior, and efficient token usage.',
         '',
-        '⚠ Active agents and direct commits to main do not mix.',
-        '  Always close tasks via npm run complete — never commit directly.',
+        '⚠ If you commit directly to main yourself, you bypass the framework',
+        '  and break task tracking for any active agent branches.',
         '',
         'Benefits',
         '· Scoped context per task',
@@ -1006,21 +1006,41 @@ fi
     },
   };
 
+  // Wrap in loop to support back navigation
   let trajectory = null;
-  while (!trajectory) {
-    const input = await ask(`  ${bold('Select (1-2)')}: `);
-    if (['1', '2'].includes(input)) {
-      trajectory = input;
-    } else {
-      console.log(yellow('  Please enter 1 or 2.'));
+  trajectoryLoop: while (true) {
+    while (!trajectory) {
+      const input = await ask(`  ${bold('Select (1-2)')}: `);
+      if (['1', '2'].includes(input)) trajectory = input;
+      else console.log(yellow('  Please enter 1 or 2.'));
     }
+
+    const selected = TRAJECTORY_DETAILS[trajectory];
+    separator();
+    console.log(`\n  ${green('✓')} ${bold(selected.label)}\n`);
+    renderTrajectoryLines(selected.full);
+    console.log('');
+
+    const confirm = await ask(`  ${bold('Confirm?')} ${dim('(y / b = back)')}: `);
+    if (confirm.toLowerCase() === 'y') break trajectoryLoop;
+    trajectory = null; // reset and re-show menu
+    separator();
+    console.log(`\n  ${bold('How do you want to build?')}\n`);
+    console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}`);
+    console.log(`${dim('     · Every task should start with npm run launch')}`);
+    console.log(`${dim('     · Each agent works in a short, focused session')}`);
+    console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
+    console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
+    console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
+    console.log(`  ${dim('2.')} ${bold('Hybrid')}`);
+    console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
+    console.log(`${dim('     · Agent tasks run in focused sessions; your tasks cost only what you prompt')}`);
+    console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
+    console.log(`${dim('       you for areas where requirements are still evolving')}`);
+    console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
   }
 
   const selected = TRAJECTORY_DETAILS[trajectory];
-  separator();
-  console.log(`\n  ${green('✓')} ${bold(selected.label)}\n`);
-  renderTrajectoryLines(selected.full);
-  console.log('');
 
   // Store trajectory in config
   try {
