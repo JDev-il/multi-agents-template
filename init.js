@@ -936,23 +936,25 @@ fi
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
   console.log(`  ${bold('How do you want to build?')}\n`);
 
-  console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}`);
+  console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
   console.log(`${dim('     · Every task should start with npm run launch')}`);
-  console.log(`${dim('     · Each agent works in a short, focused session')}`);
+  console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
+  console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
   console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
   console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
   console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
 
-  console.log(`  ${dim('2.')} ${bold('Hybrid')}`);
+  console.log(`  ${dim('2.')} ${bold('Shared Orchestration')}`);
   console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
-  console.log(`${dim('     · Agent tasks run in focused sessions; your tasks cost only what you prompt')}`);
+  console.log(`${dim('     · Agent tasks run in git worktrees; your work happens directly in the project')}`);
+  console.log(`${dim('     · Agent tasks are token-efficient; your tasks cost only what you prompt')}`);
   console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
   console.log(`${dim('       you for areas where requirements are still evolving')}`);
   console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
 
   const TRAJECTORY_DETAILS = {
     '1': {
-      label: 'Multi-agent-driven',
+      label: 'Multi-Agent Driven Orchestration',
       full: [
         'Every task must start with npm run launch.',
         'Agent sessions load only task-relevant context, enabling reliable',
@@ -970,7 +972,7 @@ fi
       next: 'launch',
     },
     '2': {
-      label: 'Hybrid',
+      label: 'Shared Orchestration',
       full: [
         'You and agents work in the same codebase, each with clearly',
         'defined ownership. File boundaries must be established before',
@@ -1026,15 +1028,17 @@ fi
     trajectory = null; // reset and re-show menu
     separator();
     console.log(`\n  ${bold('How do you want to build?')}\n`);
-    console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}`);
+    console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
     console.log(`${dim('     · Every task should start with npm run launch')}`);
-    console.log(`${dim('     · Each agent works in a short, focused session')}`);
+    console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
+    console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
     console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
     console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
     console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
-    console.log(`  ${dim('2.')} ${bold('Hybrid')}`);
+    console.log(`  ${dim('2.')} ${bold('Shared Orchestration')}`);
     console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
-    console.log(`${dim('     · Agent tasks run in focused sessions; your tasks cost only what you prompt')}`);
+    console.log(`${dim('     · Agent tasks run in git worktrees; your work happens directly in the project')}`);
+    console.log(`${dim('     · Agent tasks are token-efficient; your tasks cost only what you prompt')}`);
     console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
     console.log(`${dim('       you for areas where requirements are still evolving')}`);
     console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
