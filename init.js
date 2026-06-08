@@ -900,30 +900,120 @@ If a dependency is not met:
 
   setupUserRemote(ROOT, projectName);
 
-  // ── Chain to launch.js ────────────────────────────────────────────────────────
+  // ── Trajectory selection ─────────────────────────────────────────────────────
 
   separator();
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
+  console.log(`  ${bold('How do you want to build?')}\n`);
+  console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}  ${dim('[agents handle implementation, you orchestrate]')}`);
+  console.log(`  ${dim('2.')} ${bold('Self-managed')}        ${dim('[you build and commit directly]')}`);
+  console.log(`  ${dim('3.')} ${bold('Hybrid')}              ${dim('[you and agents share defined territories]')}\n`);
 
-  const launchInput = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n — default: n)')}: `);
-  const launch = launchInput.toLowerCase() || 'n';
+  const TRAJECTORY_DETAILS = {
+    '1': {
+      label: 'Multi-agent-driven',
+      lines: [
+        'Every task should go through npm run launch to maintain',
+        'seamless chaining. Each agent session loads scoped context',
+        'only — token-efficient and predictable.',
+        '',
+        '⚠ Avoid committing to main while agent tasks are active.',
+        '   BUILD_STATE.md tracks what is active at any moment.',
+        '',
+        '→ Token spend: predictable, proportional to task count.',
+        '   Each agent session is cheaper than a long self-managed session.',
+      ],
+      next: 'launch',
+    },
+    '2': {
+      label: 'Self-managed',
+      lines: [
+        'You build and commit directly using git as you normally would.',
+        'Use npm run launch when you want an agent for a specific task.',
+        '',
+        'Claude Code sessions in the project root will follow CLAUDE.md',
+        'rules and read BUILD_STATE.md — but tracking and BUILD_STATE',
+        'updates require going through npm run launch.',
+        '',
+        '→ Token spend: entirely your control. Long sessions accumulate',
+        '   context progressively — shorter sessions cost less.',
+      ],
+      next: 'manual',
+    },
+    '3': {
+      label: 'Hybrid',
+      lines: [
+        'You and agents are co-equal contributors with fixed file',
+        'boundaries — decided before any work begins.',
+        '',
+        'Use agents for: large structured tasks (200+ lines, multi-file)',
+        'Handle manually: small fixes, config, single-file changes (<50 lines)',
+        '',
+        '⚠ Overlapping the same files will cause merge conflicts.',
+        '   Define boundaries upfront and do not change them mid-project.',
+        '',
+        '→ Token spend: most nuanced. Agent tasks are scoped and efficient.',
+        '   Manual tasks cost only what you prompt. Gray zone: if you spend',
+        '   tokens clarifying requirements, handle that task manually.',
+      ],
+      next: 'launch',
+    },
+  };
 
-  if (launch === 'y') {
-    rl.close();
-    console.log('');
-    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-      stdio: 'inherit',
-      cwd: ROOT,
-    });
-    child.on('exit', (code) => process.exit(code));
-  } else {
-    console.log('');
-    console.log(`  ${bold('When ready, run:')}`); 
-    console.log(`  ${cyan('npm run launch')}\n`);
-    separator();
-    console.log('');
-    rl.close();
+  let trajectory = null;
+  while (!trajectory) {
+    const input = await ask(`  ${bold('Select (1-3)')} ${dim('or ? for details')}: `);
+
+    if (input === '?') {
+      console.log('');
+      Object.entries(TRAJECTORY_DETAILS).forEach(([key, t]) => {
+        console.log(`  ${bold(`${key}. ${t.label}`)}`);
+        t.lines.forEach(l => console.log(`     ${l ? dim(l) : ''}`));
+        console.log('');
+      });
+      continue;
+    }
+
+    if (['1', '2', '3'].includes(input)) {
+      trajectory = input;
+    } else {
+      console.log(yellow('  Please enter 1, 2, 3, or ?.'));
+    }
   }
+
+  const selected = TRAJECTORY_DETAILS[trajectory];
+  separator();
+  console.log(`\n  ${green('✓')} ${bold(selected.label)}\n`);
+  selected.lines.forEach(l => console.log(`  ${l ? dim(l) : ''}`));
+  console.log('');
+
+  // Store trajectory in config
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(RUNTIME_DIR, '.config.json'), 'utf8'));
+    cfg.trajectory = selected.label.toLowerCase().replace(/ /g, '-');
+    fs.writeFileSync(path.join(RUNTIME_DIR, '.config.json'), JSON.stringify(cfg, null, 2), 'utf8');
+  } catch { /* best-effort */ }
+
+  if (selected.next === 'launch') {
+    const launchInput = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n)')}: `);
+    if (launchInput.toLowerCase() === 'y') {
+      rl.close();
+      console.log('');
+      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+        stdio: 'inherit',
+        cwd: ROOT,
+      });
+      child.on('exit', (code) => process.exit(code));
+      return;
+    }
+  }
+
+  console.log('');
+  console.log(`  ${bold('When ready, run:')}`);
+  console.log(`  ${cyan('npm run launch')}\n`);
+  separator();
+  console.log('');
+  rl.close();
 };
 
 main().catch((err) => {
