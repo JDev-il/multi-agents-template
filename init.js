@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * Multi-Agent Monorepo Template - Project Initializer
- * Run with: npm run init
+ * multi-agents - Project Initializer
+ * Run with: npm run init           (inside existing project)
+ *        or: multi-agents init my-project  (global CLI)
  *
  * Runs once. Locked after completion via .scaffold/.initialized
- * Delete .scaffold/.initialized to re-run.
  */
 
 const readline  = require('readline');
@@ -35,19 +35,36 @@ const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
 const blue   = (s) => `${c.blue}${s}${c.reset}`;
 const red    = (s) => `${c.red}${s}${c.reset}`;
 
-// ── Lock check ────────────────────────────────────────────────────────────────
+// ── CLI argument handling ─────────────────────────────────────────────────────
 
-const ROOT        = __dirname;
-const RUNTIME_DIR = path.join(ROOT, '.scaffold');
-const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
+const args       = process.argv.slice(2);
+const isGlobalCLI = args[0] === 'init' && args[1];
+const projectArg  = isGlobalCLI ? args[1] : null;
 
-// Ensure .scaffold/ runtime dir exists
-const fs_temp = require('fs');
-if (!fs_temp.existsSync(path.join(__dirname, '.scaffold'))) {
-  fs_temp.mkdirSync(path.join(__dirname, '.scaffold'), { recursive: true });
+if (isGlobalCLI) {
+  const targetDir = path.resolve(process.cwd(), projectArg);
+
+  if (fs.existsSync(targetDir)) {
+    console.log(`\n${red(`  ✗ Directory "${projectArg}" already exists.`)}`);
+    console.log(dim('  Choose a different project name.\n'));
+    process.exit(1);
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  process.chdir(targetDir);
+
+  // Initialize git
+  try {
+    execSync('git init', { cwd: targetDir, stdio: 'pipe' });
+    execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
+  } catch { /* git may not have user config yet — continue */ }
 }
 
-// Lock check handled inside main()
+// ── Lock check ────────────────────────────────────────────────────────────────
+
+const ROOT        = process.cwd();
+const RUNTIME_DIR = path.join(ROOT, '.scaffold');
+const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
 
 // ── Decision tree ─────────────────────────────────────────────────────────────
 

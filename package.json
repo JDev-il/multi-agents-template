@@ -1,19 +1,20 @@
 {
   "name": "multi-agents",
   "version": "1.0.0",
-  "description": "Multi-Agent Monorepo Template powered by Claude Code and Git Worktrees",
-  "scripts": {
-    "init":     "node init.js",
-    "launch":   "cd \"$(git rev-parse --git-common-dir)/..\" && node .workflow/launch.js",
-    "complete": "cd \"$(git rev-parse --git-common-dir)/..\" && node .workflow/complete.js"
-  },
-  "keywords": [
-    "claude-code",
-    "multi-agent",
-    "git-worktree",
-    "monorepo",
-    "scaffold"
-  ],
+  "description": "Multi-agent workflow orchestration for Claude Code — isolated git worktrees, structured state tracking, autonomous task chaining",
+  "keywords": ["claude-code", "multi-agents", "git-worktree", "orchestration", "workflow", "monorepo", "scaffold"],
   "author": "Jonathan Daniel",
-  "license": "MIT"
+  "license": "MIT",
+  "bin": {
+    "multi-agents": "./init.js"
+  },
+  "files": ["init.js", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JDev-il/multi-agents.git"
+  },
+  "homepage": "https://github.com/JDev-il/multi-agents#readme"
 }
