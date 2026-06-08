@@ -66,6 +66,11 @@ const ROOT        = process.cwd();
 const RUNTIME_DIR = path.join(ROOT, '.scaffold');
 const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
 
+// Ensure .scaffold/ exists
+if (!fs.existsSync(RUNTIME_DIR)) {
+  fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+}
+
 // ── Decision tree ─────────────────────────────────────────────────────────────
 
 const CLIENT_FRAMEWORKS = [
