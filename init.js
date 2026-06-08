@@ -342,7 +342,16 @@ const setupUserRemote = (ROOT, projectName) => {
   console.log(dim('  All work stays local until then.\n'));
 };
 
-// ── Readline ──────────────────────────────────────────────────────────────────
+const renderTrajectoryLines = (lines) => {
+  const HEADERS = ['Benefits', 'Best for', 'Use agents for', 'Handle manually'];
+  lines.forEach(l => {
+    if (!l) { console.log(''); return; }
+    if (l.startsWith('⚠'))         console.log(`  ${yellow(l)}`);
+    else if (HEADERS.includes(l))  console.log(`\n  ${bold(l)}`);
+    else if (l.startsWith('·'))    console.log(`  ${l}`);
+    else                           console.log(`  ${dim(l)}`);
+  });
+};
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -905,56 +914,100 @@ If a dependency is not met:
   separator();
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
   console.log(`  ${bold('How do you want to build?')}\n`);
-  console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}  ${dim('[agents handle implementation, you orchestrate]')}`);
-  console.log(`  ${dim('2.')} ${bold('Self-managed')}        ${dim('[you build and commit directly]')}`);
-  console.log(`  ${dim('3.')} ${bold('Hybrid')}              ${dim('[you and agents share defined territories]')}\n`);
+
+  console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}`);
+  console.log(`${dim('     Every task should start with npm run launch.')}`);
+  console.log(`${dim('     Agents load scoped context only — predictable tokens, clean chaining.')}`);
+  console.log(`${yellow('     ⚠ No direct commits to main while agents are active.')}\n`);
+
+  console.log(`  ${dim('2.')} ${bold('Self-managed')}`);
+  console.log(`${dim('     You own the workflow end to end.')}`);
+  console.log(`${dim('     Use git as you normally would. Use npm run launch only when needed.')}`);
+  console.log(`${yellow('     ⚠ Root Claude Code sessions don\'t update BUILD_STATE.md automatically.')}\n`);
+
+  console.log(`  ${dim('3.')} ${bold('Hybrid')}`);
+  console.log(`${dim('     You and agents co-build — each owning a defined part of the codebase.')}`);
+  console.log(`${yellow('     ⚠ Overlapping file ownership creates merge conflicts.')}\n`);
 
   const TRAJECTORY_DETAILS = {
     '1': {
       label: 'Multi-agent-driven',
-      lines: [
-        'Every task should go through npm run launch to maintain',
-        'seamless chaining. Each agent session loads scoped context',
-        'only — token-efficient and predictable.',
+      full: [
+        'Every task must start with npm run launch.',
+        'Agent sessions load only task-relevant context, enabling reliable',
+        'chaining, predictable behavior, and efficient token usage.',
         '',
-        '⚠ Avoid committing to main while agent tasks are active.',
-        '   BUILD_STATE.md tracks what is active at any moment.',
+        '⚠ Active agents and direct commits to main do not mix.',
+        '  Always check BUILD_STATE.md before committing — it tracks',
+        '  all active work in progress.',
         '',
-        '→ Token spend: predictable, proportional to task count.',
-        '   Each agent session is cheaper than a long self-managed session.',
+        'Benefits',
+        '· Scoped context per task',
+        '· Predictable token consumption',
+        '· Lower cost than maintaining large, persistent sessions',
+        '· Better isolation between parallel work streams',
       ],
       next: 'launch',
     },
     '2': {
       label: 'Self-managed',
-      lines: [
-        'You build and commit directly using git as you normally would.',
-        'Use npm run launch when you want an agent for a specific task.',
+      full: [
+        'You own the workflow from start to finish.',
+        'Use Git exactly as you normally would. When a task benefits',
+        'from isolation or parallel execution, launch an agent with',
+        'npm run launch.',
         '',
-        'Claude Code sessions in the project root will follow CLAUDE.md',
-        'rules and read BUILD_STATE.md — but tracking and BUILD_STATE',
-        'updates require going through npm run launch.',
+        '⚠ Project-root Claude Code sessions follow CLAUDE.md, but they',
+        '  do not automatically update BUILD_STATE.md or framework',
+        '  tracking. Use npm run launch whenever you want the framework',
+        '  to remain aware of active work.',
         '',
-        '→ Token spend: entirely your control. Long sessions accumulate',
-        '   context progressively — shorter sessions cost less.',
+        'Best for',
+        '· Quick fixes',
+        '· Small feature work',
+        '· Configuration updates',
+        '· Experimental changes',
+        '',
+        'Benefits',
+        '· Full control over commits, branches, and workflow',
+        '· No framework overhead for small tasks',
+        '· Token usage stays entirely under your control',
+        '· Short sessions remain fast and cost-efficient',
       ],
       next: 'manual',
     },
     '3': {
       label: 'Hybrid',
-      lines: [
-        'You and agents are co-equal contributors with fixed file',
-        'boundaries — decided before any work begins.',
+      full: [
+        'You and agents work in the same codebase, each with clearly',
+        'defined ownership. File boundaries must be established before',
+        'work begins and remain fixed throughout the task.',
+        'Agents excel when scope is well-defined;',
+        'humans excel when requirements are evolving.',
         '',
-        'Use agents for: large structured tasks (200+ lines, multi-file)',
-        'Handle manually: small fixes, config, single-file changes (<50 lines)',
+        'Use agents for',
+        '· Multi-file features',
+        '· Structured implementation work',
+        '· Domain-specific tasks',
+        '· Changes expected to exceed ~200 lines',
         '',
-        '⚠ Overlapping the same files will cause merge conflicts.',
-        '   Define boundaries upfront and do not change them mid-project.',
+        'Handle manually',
+        '· Targeted bug fixes',
+        '· Configuration changes',
+        '· Small refactors',
+        '· Single-file edits under ~50 lines',
         '',
-        '→ Token spend: most nuanced. Agent tasks are scoped and efficient.',
-        '   Manual tasks cost only what you prompt. Gray zone: if you spend',
-        '   tokens clarifying requirements, handle that task manually.',
+        '⚠ Avoid overlapping file ownership. Working on the same files',
+        '  as an active agent will create merge conflicts when merged.',
+        '⚠ If you are spending time repeatedly clarifying scope, stop',
+        '  and do the task yourself. The coordination cost often',
+        '  exceeds the implementation cost.',
+        '',
+        'Benefits',
+        '· Maximum agent efficiency for well-defined work',
+        '· Human flexibility where requirements change',
+        '· Scales well across large projects',
+        '· Most adaptable workflow — requires the most discipline',
       ],
       next: 'launch',
     },
@@ -962,29 +1015,18 @@ If a dependency is not met:
 
   let trajectory = null;
   while (!trajectory) {
-    const input = await ask(`  ${bold('Select (1-3)')} ${dim('or ? for details')}: `);
-
-    if (input === '?') {
-      console.log('');
-      Object.entries(TRAJECTORY_DETAILS).forEach(([key, t]) => {
-        console.log(`  ${bold(`${key}. ${t.label}`)}`);
-        t.lines.forEach(l => console.log(`     ${l ? dim(l) : ''}`));
-        console.log('');
-      });
-      continue;
-    }
-
+    const input = await ask(`  ${bold('Select (1-3)')}: `);
     if (['1', '2', '3'].includes(input)) {
       trajectory = input;
     } else {
-      console.log(yellow('  Please enter 1, 2, 3, or ?.'));
+      console.log(yellow('  Please enter 1, 2, or 3.'));
     }
   }
 
   const selected = TRAJECTORY_DETAILS[trajectory];
   separator();
   console.log(`\n  ${green('✓')} ${bold(selected.label)}\n`);
-  selected.lines.forEach(l => console.log(`  ${l ? dim(l) : ''}`));
+  renderTrajectoryLines(selected.full);
   console.log('');
 
   // Store trajectory in config
