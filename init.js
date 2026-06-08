@@ -905,6 +905,27 @@ If a dependency is not met:
     console.log(dim('     git add . && git commit -m "init: project configuration"'));
   }
 
+  // ── Pre-commit hook — block direct commits to main ───────────────────────────
+
+  try {
+    const hooksDir  = path.join(ROOT, '.git', 'hooks');
+    const hookPath  = path.join(hooksDir, 'pre-commit');
+    const hookScript = `#!/bin/sh
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ]; then
+  echo ""
+  echo "  ⚠ Direct commits to main are not allowed."
+  echo "    Use npm run launch to start a task."
+  echo ""
+  exit 1
+fi
+`;
+    if (!fs.existsSync(hookPath)) {
+      fs.writeFileSync(hookPath, hookScript, { mode: 0o755 });
+      console.log(dim('  ℹ Pre-commit hook installed — direct main commits blocked'));
+    }
+  } catch { /* best-effort */ }
+
   // ── Remote setup ─────────────────────────────────────────────────────────────
 
   setupUserRemote(ROOT, projectName);
@@ -916,18 +937,18 @@ If a dependency is not met:
   console.log(`  ${bold('How do you want to build?')}\n`);
 
   console.log(`  ${dim('1.')} ${bold('Multi-agent-driven')}`);
-  console.log(`${dim('     Every task should start with npm run launch.')}`);
-  console.log(`${dim('     Agents load scoped context only — predictable tokens, clean chaining.')}`);
-  console.log(`${yellow('     ⚠ No direct commits to main while agents are active.')}\n`);
+  console.log(`${dim('     · Every task should start with npm run launch')}`);
+  console.log(`${dim('     · Each agent works in a short, focused session')}`);
+  console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
+  console.log(`${yellow('     ⚠ Committing directly to main bypasses the framework and')}`);
+  console.log(`${yellow('       breaks task tracking — always close tasks via npm run complete')}\n`);
 
-  console.log(`  ${dim('2.')} ${bold('Self-managed')}`);
-  console.log(`${dim('     You own the workflow end to end.')}`);
-  console.log(`${dim('     Use git as you normally would. Use npm run launch only when needed.')}`);
-  console.log(`${yellow('     ⚠ Root Claude Code sessions don\'t update BUILD_STATE.md automatically.')}\n`);
-
-  console.log(`  ${dim('3.')} ${bold('Hybrid')}`);
-  console.log(`${dim('     You and agents co-build — each owning a defined part of the codebase.')}`);
-  console.log(`${yellow('     ⚠ Overlapping file ownership creates merge conflicts.')}\n`);
+  console.log(`  ${dim('2.')} ${bold('Hybrid')}`);
+  console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
+  console.log(`${dim('     · Agent tasks run in focused sessions; your tasks cost only what you prompt')}`);
+  console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
+  console.log(`${dim('       you for areas where requirements are still evolving')}`);
+  console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
 
   const TRAJECTORY_DETAILS = {
     '1': {
@@ -938,8 +959,7 @@ If a dependency is not met:
         'chaining, predictable behavior, and efficient token usage.',
         '',
         '⚠ Active agents and direct commits to main do not mix.',
-        '  Always check BUILD_STATE.md before committing — it tracks',
-        '  all active work in progress.',
+        '  Always close tasks via npm run complete — never commit directly.',
         '',
         'Benefits',
         '· Scoped context per task',
@@ -950,40 +970,13 @@ If a dependency is not met:
       next: 'launch',
     },
     '2': {
-      label: 'Self-managed',
-      full: [
-        'You own the workflow from start to finish.',
-        'Use Git exactly as you normally would. When a task benefits',
-        'from isolation or parallel execution, launch an agent with',
-        'npm run launch.',
-        '',
-        '⚠ Project-root Claude Code sessions follow CLAUDE.md, but they',
-        '  do not automatically update BUILD_STATE.md or framework',
-        '  tracking. Use npm run launch whenever you want the framework',
-        '  to remain aware of active work.',
-        '',
-        'Best for',
-        '· Quick fixes',
-        '· Small feature work',
-        '· Configuration updates',
-        '· Experimental changes',
-        '',
-        'Benefits',
-        '· Full control over commits, branches, and workflow',
-        '· No framework overhead for small tasks',
-        '· Token usage stays entirely under your control',
-        '· Short sessions remain fast and cost-efficient',
-      ],
-      next: 'manual',
-    },
-    '3': {
       label: 'Hybrid',
       full: [
         'You and agents work in the same codebase, each with clearly',
         'defined ownership. File boundaries must be established before',
         'work begins and remain fixed throughout the task.',
         'Agents excel when scope is well-defined;',
-        'humans excel when requirements are evolving.',
+        'you excel when requirements are evolving.',
         '',
         'Use agents for',
         '· Multi-file features',
@@ -1015,11 +1008,11 @@ If a dependency is not met:
 
   let trajectory = null;
   while (!trajectory) {
-    const input = await ask(`  ${bold('Select (1-3)')}: `);
-    if (['1', '2', '3'].includes(input)) {
+    const input = await ask(`  ${bold('Select (1-2)')}: `);
+    if (['1', '2'].includes(input)) {
       trajectory = input;
     } else {
-      console.log(yellow('  Please enter 1, 2, or 3.'));
+      console.log(yellow('  Please enter 1 or 2.'));
     }
   }
 
