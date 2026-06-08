@@ -55,9 +55,16 @@ if (isGlobalCLI) {
 
   // Initialize git
   try {
-    execSync('git init', { cwd: targetDir, stdio: 'pipe' });
+    execSync('git init -b main', { cwd: targetDir, stdio: 'pipe' });
     execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
-  } catch { /* git may not have user config yet — continue */ }
+  } catch {
+    // Fallback for older git versions that don't support -b flag
+    try {
+      execSync('git init', { cwd: targetDir, stdio: 'pipe' });
+      execSync('git checkout -b main', { cwd: targetDir, stdio: 'pipe' });
+      execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
+    } catch { /* continue */ }
+  }
 }
 
 // ── Lock check ────────────────────────────────────────────────────────────────
@@ -899,6 +906,20 @@ If a dependency is not met:
 
   fs.writeFileSync(path.join(ROOT, 'BUILD_STATE.md'), buildState, 'utf8');
   console.log(`  ${green('✓')} BUILD_STATE.md generated`);
+
+  // ── Generate user project package.json ───────────────────────────────────────
+
+  const userPackage = {
+    name:    projectName.toLowerCase().replace(/\s+/g, '-'),
+    version: '1.0.0',
+    private: true,
+    scripts: {
+      launch:   'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/launch.js',
+      complete: 'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/complete.js',
+    },
+  };
+  fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(userPackage, null, 2), 'utf8');
+  console.log(`  ${green('✓')} package.json generated`);
 
   // ── Tracking ──────────────────────────────────────────────────────────────────
 
