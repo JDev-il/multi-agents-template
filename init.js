@@ -11,6 +11,45 @@
 const readline  = require('readline');
 const fs        = require('fs');
 const path      = require('path');
+
+// ── Prompts (arrow-key navigation) ───────────────────────────────────────────
+
+let prompts;
+try { prompts = require('prompts'); } catch { prompts = null; }
+
+const arrowSelect = async (message, choices, rl) => {
+  if (prompts && process.stdin.isTTY) {
+    const res = await prompts({
+      type:    'select',
+      name:    'value',
+      message,
+      choices: choices.map((c, i) => ({ title: typeof c === 'string' ? c : c.label, value: i })),
+    }, { onCancel: () => process.exit(0) });
+    return res.value ?? 0;
+  }
+  choices.forEach((c, i) => console.log(`  ${dim(`${i + 1}.`)} ${typeof c === 'string' ? c : c.label}`));
+  return new Promise(resolve => {
+    rl.question(`\n  Select (1-${choices.length}): `, ans => {
+      const n = parseInt(ans) - 1;
+      resolve(!isNaN(n) && n >= 0 && n < choices.length ? n : 0);
+    });
+  });
+};
+
+const arrowConfirm = async (message, rl) => {
+  if (prompts && process.stdin.isTTY) {
+    const res = await prompts({
+      type:    'confirm',
+      name:    'value',
+      message,
+      initial: true,
+    }, { onCancel: () => process.exit(0) });
+    return res.value ?? true;
+  }
+  return new Promise(resolve => {
+    rl.question(`${message} (y/n): `, ans => resolve(ans.toLowerCase() !== 'n'));
+  });
+};
 const os        = require('os');
 const { execSync, spawn } = require('child_process');
 
@@ -436,29 +475,21 @@ const showList = (items, showSkip = false) => {
 };
 
 const selectRequired = async (prompt, items) => {
-  while (true) {
-    console.log(`\n${bold(prompt)}`);
-    showList(items);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(1-${items.length})`)}: `);
-    const index = parseInt(input) - 1;
-    if (!isNaN(index) && index >= 0 && index < items.length) return items[index];
-    console.log(yellow(`  Please enter a number between 1 and ${items.length}.`));
-  }
+  console.log(`\n${bold(prompt)}`);
+  const idx = await arrowSelect(prompt, items.map(i => ({ label: typeof i === 'string' ? i : i.label })), rl);
+  return items[idx];
 };
 
 const selectOptional = async (prompt, items) => {
   if (!items || items.length === 0) return null;
-  while (true) {
-    console.log(`\n${bold(prompt)}`);
-    showList(items, true);
-    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
-    if (input === '0' || input === '') return null;
-    const index = parseInt(input) - 1;
-    if (!isNaN(index) && index >= 0 && index < items.length) {
-      return typeof items[index] === 'string' ? items[index] : items[index].value;
-    }
-    console.log(yellow(`  Invalid selection. Please enter a number between 0 and ${items.length}.`));
-  }
+  console.log(`\n${bold(prompt)}`);
+  const choices = [
+    ...items.map(i => ({ label: typeof i === 'string' ? i : i.label })),
+    { label: dim('Skip (agent will propose when needed)') },
+  ];
+  const idx = await arrowSelect(prompt, choices, rl);
+  if (idx === items.length) return null;
+  return typeof items[idx] === 'string' ? items[idx] : items[idx].value;
 };
 
 const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
@@ -600,11 +631,11 @@ const main = async () => {
   let backendOrm  = null;
   let backendAuth = null;
   let backendType = null;
+  let backendFwObj = null;
 
   if (clientFw.integratedBackend) {
     console.log(dim(`  ${clientFw.value} supports server-side rendering and API routes.\n`));
-    const integratedAnswer = await ask(`  ${bold('Use integrated backend')} ${dim(`(${clientFw.value} API routes/SSR)`)} ${dim('instead of a separate backend? (y/n)')}: `);
-    useIntegratedBackend = integratedAnswer.toLowerCase() === 'y';
+    useIntegratedBackend = await arrowConfirm(`Use integrated backend (${clientFw.value} API routes/SSR) instead of a separate backend?`, rl);
 
     if (useIntegratedBackend) {
       backendType = 'integrated';
@@ -615,22 +646,12 @@ const main = async () => {
   if (!useIntegratedBackend) {
     console.log(dim('  You can skip the backend framework and decide later.\n'));
 
-    let backendFwObj = undefined;
-    while (backendFwObj === undefined) {
-      console.log(`\n${bold('Backend framework:')}`);
-      showList(BACKEND_FRAMEWORKS, true);
-      const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
-      if (input === '0' || input === '') {
-        backendFwObj = null;
-      } else {
-        const index = parseInt(input) - 1;
-        if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) {
-          console.log(yellow(`  Please enter a number between 0 and ${BACKEND_FRAMEWORKS.length}.`));
-        } else {
-          backendFwObj = BACKEND_FRAMEWORKS[index];
-        }
-      }
-    }
+    const backendChoices = [
+      ...BACKEND_FRAMEWORKS.map(f => ({ label: f.label || f.value })),
+      { label: dim('Skip (decide later)') },
+    ];
+    const backendIdx = await arrowSelect('Backend framework:', backendChoices, rl);
+    backendFwObj = backendIdx === BACKEND_FRAMEWORKS.length ? null : BACKEND_FRAMEWORKS[backendIdx];
 
     backendFw   = backendFwObj ? backendFwObj.value    : null;
     backendLang = backendFwObj ? backendFwObj.language : null;
@@ -675,8 +696,7 @@ const main = async () => {
     if (ideChoice.cmd && !ideChoice.detected) {
       console.log(yellow(`  ⚠ ${ideChoice.name} was not detected on PATH. It may not open automatically.`));
     }
-    const confirmIde = await ask(`  ${bold('Confirm this selection?')} ${dim('(y/n)')}: `);
-    if (confirmIde.toLowerCase() !== 'y') {
+    if (!await arrowConfirm('Confirm this selection?', rl)) {
       console.log(dim('  Re-selecting...\n'));
       continue;
     }
@@ -698,8 +718,7 @@ const main = async () => {
     }
 
     console.log(`  ${yellow('!')} Could not verify ${ideChoice.name}. The CLI may not be installed or accessible.`);
-    const proceedAnyway = await ask(`  ${bold('Continue with this IDE anyway?')} ${dim('(y/n)')}: `);
-    if (proceedAnyway.toLowerCase() === 'y') break;
+    if (await arrowConfirm('Continue with this IDE anyway?', rl)) break;
     console.log(dim('  Re-selecting...\n'));
   }
 
@@ -724,9 +743,13 @@ const main = async () => {
 
   console.log('');
   console.log(dim('  y = confirm  |  n = abort  |  e = edit (start over)\n'));
-  const confirm = await ask(`${bold('Confirm and write to config files?')} ${dim('(y/n/e)')}: `);
+  const confirmIdx = await arrowSelect('Confirm and write to config files?', [
+    { label: `${green('✓')} Confirm — write config and set up project` },
+    { label: `${yellow('↺')} Restart — redo configuration` },
+    { label: `${red('✗')} Abort` },
+  ], rl);
 
-  if (confirm.toLowerCase() === 'e') {
+  if (confirmIdx === 1) {
     console.log(yellow('\n  Restarting configuration...\n'));
     rl.close();
     const { spawn } = require('child_process');
@@ -735,7 +758,7 @@ const main = async () => {
     return;
   }
 
-  if (confirm.toLowerCase() !== 'y') {
+  if (confirmIdx === 2) {
     console.log(yellow('\n  Aborted. No files were changed.\n'));
     rl.close();
     return;
@@ -1125,11 +1148,11 @@ fi
   // Wrap in loop to support back navigation
   let trajectory = null;
   trajectoryLoop: while (true) {
-    while (!trajectory) {
-      const input = await ask(`  ${bold('Select (1-2)')}: `);
-      if (['1', '2'].includes(input)) trajectory = input;
-      else console.log(yellow('  Please enter 1 or 2.'));
-    }
+    const trajIdx = await arrowSelect('How do you want to build?', [
+      { label: bold('Multi-Agent Driven Orchestration') },
+      { label: bold('Shared Orchestration') },
+    ], rl);
+    trajectory = String(trajIdx + 1);
 
     const selected = TRAJECTORY_DETAILS[trajectory];
     separator();
@@ -1137,9 +1160,12 @@ fi
     renderTrajectoryLines(selected.full);
     console.log('');
 
-    const confirm = await ask(`  ${bold('Confirm?')} ${dim('(y / b = back)')}: `);
-    if (confirm.toLowerCase() === 'y') break trajectoryLoop;
-    trajectory = null; // reset and re-show menu
+    const confirmIdx = await arrowSelect('Confirm?', [
+      { label: `${green('✓')} Confirm` },
+      { label: `${yellow('←')} Back — pick differently` },
+    ], rl);
+    if (confirmIdx === 0) break trajectoryLoop;
+    trajectory = null;
     separator();
     console.log(`\n  ${bold('How do you want to build?')}\n`);
     console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
@@ -1168,8 +1194,8 @@ fi
   } catch { /* best-effort */ }
 
   if (selected.next === 'launch') {
-    const launchInput = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n)')}: `);
-    if (launchInput.toLowerCase() === 'y') {
+    const launchConfirm = await arrowConfirm('Ready to launch your first task?', rl);
+    if (launchConfirm) {
       rl.close();
       console.log('');
       const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {

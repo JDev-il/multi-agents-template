@@ -16,6 +16,9 @@
   "bin": {
     "multi-agents": "init.js"
   },
+  "dependencies": {
+    "prompts": "^2.4.2"
+  },
   "files": [
     "init.js",
     "README.md",
