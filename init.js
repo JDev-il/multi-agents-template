@@ -475,14 +475,12 @@ const showList = (items, showSkip = false) => {
 };
 
 const selectRequired = async (prompt, items) => {
-  console.log(`\n${bold(prompt)}`);
   const idx = await arrowSelect(prompt, items.map(i => ({ label: typeof i === 'string' ? i : i.label })), rl);
   return items[idx];
 };
 
 const selectOptional = async (prompt, items) => {
   if (!items || items.length === 0) return null;
-  console.log(`\n${bold(prompt)}`);
   const choices = [
     ...items.map(i => ({ label: typeof i === 'string' ? i : i.label })),
     { label: dim('Skip (agent will propose when needed)') },
@@ -595,7 +593,7 @@ const main = async () => {
   separator();
 
   console.log(`\n${bold('Let\'s configure your project.')}`);
-  console.log(dim('  Required fields must be selected. Optional fields can be skipped (press 0 or Enter).\n'));
+  console.log(dim('  Use arrow keys to select. Optional fields can be skipped.\n'));
   console.log(dim('  Skipped fields will be resolved by the agent when first needed.\n'));
 
   // ── Project name ────────────────────────────────────────────────────────────
