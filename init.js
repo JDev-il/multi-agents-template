@@ -714,13 +714,13 @@ const main = async () => {
     if (restartIfBack(ideChoice)) return;
 
     // ── Confirmation ──────────────────────────────────────────────────────────
-    console.log(`\n  Selected: ${bold(ideChoice.name)}`);
     if (ideChoice.cmd && !ideChoice.detected) {
-      console.log(yellow(`  ⚠ ${ideChoice.name} was not detected on PATH. It may not open automatically.`));
-    }
-    if (!await arrowConfirm('Confirm this selection?', rl)) {
-      console.log(dim('  Re-selecting...\n'));
-      continue;
+      console.log(`\n  ${yellow('⚠')} ${bold(ideChoice.name)} was not detected on this machine.`);
+      console.log(dim('  It may not open automatically when launching a task.\n'));
+      if (!await arrowConfirm('Continue with this IDE anyway?', rl)) {
+        console.log(dim('  Re-selecting...\n'));
+        continue;
+      }
     }
 
     // ── Double-check ──────────────────────────────────────────────────────────
