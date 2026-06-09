@@ -1,60 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * multi-agents - Project Initializer
- * Run with: npm run init           (inside existing project)
- *        or: multi-agents init my-project  (global CLI)
+ * Multi-Agent Monorepo Template - Project Initializer
+ * Run with: npm run init
  *
  * Runs once. Locked after completion via .scaffold/.initialized
+ * Delete .scaffold/.initialized to re-run.
  */
 
 const readline  = require('readline');
 const fs        = require('fs');
 const path      = require('path');
-
-// ── Prompts (arrow-key navigation) ───────────────────────────────────────────
-
-let prompts;
-try { prompts = require('prompts'); } catch { prompts = null; }
-
-const arrowSelect = async (message, choices, rl, showBack = false) => {
-  const allChoices = showBack
-    ? [...choices, { label: dim('← Restart configuration') }]
-    : choices;
-
-  if (prompts && process.stdin.isTTY) {
-    const res = await prompts({
-      type:    'select',
-      name:    'value',
-      message,
-      choices: allChoices.map((c, i) => ({ title: typeof c === 'string' ? c : c.label, value: i })),
-    }, { onCancel: () => process.exit(0) });
-    return res.value ?? 0;
-  }
-  allChoices.forEach((c, i) => console.log(`  ${dim(`${i + 1}.`)} ${typeof c === 'string' ? c : c.label}`));
-  return new Promise(resolve => {
-    rl.question(`\n  Select (1-${allChoices.length}): `, ans => {
-      const n = parseInt(ans) - 1;
-      resolve(!isNaN(n) && n >= 0 && n < allChoices.length ? n : 0);
-    });
-  });
-};
-
-const arrowConfirm = async (message, rl) => {
-  if (prompts && process.stdin.isTTY) {
-    const res = await prompts({
-      type:    'confirm',
-      name:    'value',
-      message,
-      initial: true,
-    }, { onCancel: () => process.exit(0) });
-    return res.value ?? true;
-  }
-  return new Promise(resolve => {
-    rl.question(`${message} (y/n): `, ans => resolve(ans.toLowerCase() !== 'n'));
-  });
-};
-const os        = require('os');
 const { execSync, spawn } = require('child_process');
 
 // ── Colors ────────────────────────────────────────────────────────────────────
@@ -78,68 +34,57 @@ const cyan   = (s) => `${c.cyan}${s}${c.reset}`;
 const blue   = (s) => `${c.blue}${s}${c.reset}`;
 const red    = (s) => `${c.red}${s}${c.reset}`;
 
-// ── CLI argument handling ─────────────────────────────────────────────────────
-
-const args       = process.argv.slice(2);
-const isGlobalCLI = args[0] === 'init' && args[1];
-const projectArg  = isGlobalCLI ? args[1] : null;
-
-if (isGlobalCLI) {
-  const targetDir = path.resolve(process.cwd(), projectArg);
-
-  if (fs.existsSync(targetDir)) {
-    console.log(`\n${red(`  ✗ Directory "${projectArg}" already exists.`)}`);
-    console.log(dim('  Choose a different project name.\n'));
-    process.exit(1);
-  }
-
-  fs.mkdirSync(targetDir, { recursive: true });
-  process.chdir(targetDir);
-
-  // Initialize git
-  try {
-    execSync('git init -b main', { cwd: targetDir, stdio: 'pipe' });
-    execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
-  } catch {
-    // Fallback for older git versions that don't support -b flag
-    try {
-      execSync('git init', { cwd: targetDir, stdio: 'pipe' });
-      execSync('git checkout -b main', { cwd: targetDir, stdio: 'pipe' });
-      execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
-    } catch { /* continue */ }
-  }
-}
-
 // ── Lock check ────────────────────────────────────────────────────────────────
 
-const ROOT        = process.cwd();
+const ROOT        = __dirname;
 const RUNTIME_DIR = path.join(ROOT, '.scaffold');
 const LOCK_FILE   = path.join(RUNTIME_DIR, '.initialized');
 
-// Ensure .scaffold/ exists
-if (!fs.existsSync(RUNTIME_DIR)) {
-  fs.mkdirSync(RUNTIME_DIR, { recursive: true });
+// Ensure .scaffold/ runtime dir exists
+const fs_temp = require('fs');
+if (!fs_temp.existsSync(path.join(__dirname, '.scaffold'))) {
+  fs_temp.mkdirSync(path.join(__dirname, '.scaffold'), { recursive: true });
+}
+
+if (fs.existsSync(LOCK_FILE)) {
+  const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
+  const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
+
+  console.log(`\n${yellow('  This project has already been initialized.')}`);
+  console.log(dim(`  Initialized on: ${ts}\n`));
+  console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
+  console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
+  console.log(`  ${dim('3.')} Exit\n`);
+
+  const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
+
+  if (choice === '1') {
+    console.log('');
+    rl2.close();
+    const { spawn } = require('child_process');
+    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+      stdio: 'inherit',
+      cwd: ROOT,
+    });
+    child.on('exit', (code) => process.exit(code));
+    return;
+  } else if (choice === '2') {
+    console.log(yellow('\n  Resetting configuration...\n'));
+    fs.unlinkSync(LOCK_FILE);
+    const configPath = path.join(__dirname, '.config.json');
+    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+    rl2.close();
+    console.log(green('  Reset complete. Re-running initialization...\n'));
+    // Continue to main() below
+  } else {
+    console.log(dim('\n  Exited.\n'));
+    rl2.close();
+    process.exit(0);
+  }
 }
 
 // ── Decision tree ─────────────────────────────────────────────────────────────
-
-const FRAMEWORK_CONVENTIONS = {
-  client: {
-    'Next.js':    { root: 'client', typesDir: 'client/src/types',             importAlias: '@/types'      },
-    'Angular':    { root: 'client', typesDir: 'client/src/app/core/types',    importAlias: null           },
-    'Nuxt':       { root: 'client', typesDir: 'client/types',                 importAlias: '~/types'      },
-    'SvelteKit':  { root: 'client', typesDir: 'client/src/lib/types',         importAlias: '$lib/types'   },
-    'Vite+React': { root: 'client', typesDir: 'client/src/types',             importAlias: null           },
-    'Remix':      { root: 'client', typesDir: 'client/app/types',             importAlias: null           },
-  },
-  backend: {
-    'Express':    { root: 'backend', typesDir:   'backend/src/types',         routesDir:  'backend/src/routes'      },
-    'NestJS':     { root: 'backend', dtoDir:     'backend/src/dto',           entitiesDir:'backend/src/entities'    },
-    'Fastify':    { root: 'backend', typesDir:   'backend/src/types',         routesDir:  'backend/src/routes'      },
-    'FastAPI':    { root: 'backend', schemasDir: 'backend/app/schemas',       modelsDir:  'backend/app/models'      },
-    'Django':     { root: 'backend', schemasDir: 'backend/api/serializers',   modelsDir:  'backend/api/models'      },
-  },
-};
 
 const CLIENT_FRAMEWORKS = [
   { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript', integratedBackend: true  },
@@ -155,7 +100,6 @@ const BACKEND_FRAMEWORKS = [
   { label: 'Express',  value: 'Express',  language: 'TypeScript' },
   { label: 'Fastify',  value: 'Fastify',  language: 'TypeScript' },
   { label: 'Django',   value: 'Django',   language: 'Python'     },
-  { label: 'FastAPI',  value: 'FastAPI',  language: 'Python'     },
   { label: 'Laravel',  value: 'Laravel',  language: 'PHP'        },
   { label: 'Rails',    value: 'Rails',    language: 'Ruby'       },
 ];
@@ -191,7 +135,6 @@ const ORM_OPTIONS = {
   'Express':  ['Prisma', 'TypeORM', 'Drizzle', 'Sequelize'],
   'Fastify':  ['Prisma', 'TypeORM', 'Drizzle'],
   'Django':   ['Django ORM (built-in)', 'SQLAlchemy'],
-  'FastAPI':  ['SQLAlchemy', 'Tortoise ORM', 'Beanie (MongoDB)'],
   'Laravel':  ['Eloquent (built-in)'],
   'Rails':    ['Active Record (built-in)'],
 };
@@ -201,264 +144,11 @@ const AUTH_OPTIONS = {
   'Express':  ['Passport.js', 'JWT-only', 'OAuth2'],
   'Fastify':  ['fastify-jwt', 'Passport.js', 'OAuth2'],
   'Django':   ['Django Auth (built-in)', 'DRF TokenAuth', 'OAuth2'],
-  'FastAPI':  ['JWT-only', 'OAuth2', 'FastAPI-Users'],
   'Laravel':  ['Laravel Sanctum', 'Laravel Passport', 'JWT'],
   'Rails':    ['Devise', 'JWT', 'OAuth2'],
 };
 
-const IDE_CANDIDATES = [
-  {
-    cmd:     'code',
-    name:    'VS Code',
-    mac:     { app: 'Visual Studio Code', args: ['--new-window'] },
-    win:     { paths: ['{LOCALAPPDATA}\\Programs\\Microsoft VS Code\\Code.exe', '{ProgramFiles}\\Microsoft VS Code\\Code.exe'], args: ['--new-window'] },
-    linux:   { paths: ['/snap/bin/code', '/usr/bin/code', '/usr/local/bin/code'], args: ['--new-window'] },
-  },
-  {
-    cmd:     'cursor',
-    name:    'Cursor',
-    mac:     { app: 'Cursor', args: ['--new-window'] },
-    win:     { paths: ['{LOCALAPPDATA}\\Programs\\cursor\\Cursor.exe'], args: ['--new-window'] },
-    linux:   { paths: ['/usr/bin/cursor', '/opt/cursor/cursor'], args: ['--new-window'] },
-  },
-  {
-    cmd:     'webstorm',
-    name:    'WebStorm',
-    mac:     { app: 'WebStorm', toolboxApp: 'WebStorm', args: [] },
-    win:     { paths: [
-      '{LOCALAPPDATA}\\JetBrains\\Toolbox\\scripts\\webstorm.cmd',
-      '{LOCALAPPDATA}\\Programs\\WebStorm\\bin\\webstorm64.exe',
-    ], args: [] },
-    linux:   { paths: [
-      `${os.homedir()}/.local/bin/webstorm`,
-      '/opt/webstorm/bin/webstorm.sh',
-      '/snap/webstorm/current/bin/webstorm.sh',
-    ], args: [] },
-  },
-  {
-    cmd:     'idea',
-    name:    'IntelliJ IDEA',
-    mac:     { app: 'IntelliJ IDEA', toolboxApp: 'IntelliJ IDEA', args: [] },
-    win:     { paths: [
-      '{LOCALAPPDATA}\\JetBrains\\Toolbox\\scripts\\idea.cmd',
-      '{LOCALAPPDATA}\\Programs\\IntelliJ IDEA Community Edition\\bin\\idea64.exe',
-      '{ProgramFiles}\\JetBrains\\IntelliJ IDEA\\bin\\idea64.exe',
-    ], args: [] },
-    linux:   { paths: [
-      `${os.homedir()}/.local/bin/idea`,
-      '/opt/idea/bin/idea.sh',
-      '/snap/intellij-idea-community/current/bin/idea.sh',
-    ], args: [] },
-  },
-  {
-    cmd:     'zed',
-    name:    'Zed',
-    mac:     { app: 'Zed', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/usr/bin/zed', `${os.homedir()}/.local/bin/zed`], args: [] },
-  },
-  {
-    cmd:  null,
-    name: 'Other / Manual',
-    note: 'prints worktree path, open it yourself',
-    mac:  null,
-    win:  null,
-    linux:null,
-  },
-];
-
-// Expands {LOCALAPPDATA} / {ProgramFiles} placeholders for Windows paths
-const expandWinPath = (p) =>
-  p.replace('{LOCALAPPDATA}',  process.env.LOCALAPPDATA  || '')
-   .replace('{ProgramFiles}',  process.env.ProgramFiles  || 'C:\\Program Files');
-
-const buildIDEOptions = () => {
-  const platform = process.platform;
-
-  return IDE_CANDIDATES.map(ide => {
-    if (!ide.cmd) {
-      const noteStr = ide.note ? dim(`  (${ide.note})`) : '';
-      return { ...ide, detected: false, strategy: 'manual', label: `${ide.name}   ${dim('→')}${noteStr}` };
-    }
-
-    let detected  = false;
-    let strategy  = 'cli';
-
-    if (platform === 'darwin' && ide.mac) {
-      // Mac — check .app bundle in /Applications, ~/Applications, and JetBrains Toolbox
-      const system   = `/Applications/${ide.mac.app}.app`;
-      const user     = path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`);
-      const toolbox  = path.join(os.homedir(), 'Applications', 'JetBrains Toolbox', `${ide.mac.app}.app`);
-      detected = fs.existsSync(system) || fs.existsSync(user) || fs.existsSync(toolbox);
-      if (detected) strategy = 'mac-app';
-
-    } else if (platform === 'win32' && ide.win) {
-      // Windows — CLI first, then known exe paths
-      try {
-        execSync(`where ${ide.cmd}`, { stdio: 'pipe' });
-        detected = true;
-        strategy  = 'cli';
-      } catch {
-        const expanded = (ide.win.paths || []).map(expandWinPath);
-        detected = expanded.some(p => fs.existsSync(p));
-        if (detected) strategy = 'win-exe';
-      }
-
-    } else if (platform === 'linux' && ide.linux) {
-      // Linux — CLI first, then known install paths
-      try {
-        execSync(`which ${ide.cmd}`, { stdio: 'pipe' });
-        detected = true;
-        strategy  = 'cli';
-      } catch {
-        detected = (ide.linux.paths || []).some(p => fs.existsSync(p));
-        if (detected) strategy = 'linux-path';
-      }
-    }
-
-    const statusStr = detected ? green('✓ detected') : dim('✗ not found');
-    const noteStr   = ide.note ? dim(`  (${ide.note})`) : '';
-    return {
-      ...ide,
-      detected,
-      strategy,
-      label: `${ide.name}   ${statusStr}${noteStr}`,
-    };
-  });
-};
-
-const verifyIDE = (ide) => {
-  const platform = process.platform;
-
-  if (ide.strategy === 'mac-app' && ide.mac) {
-    // Mac — confirm .app exists and try to read version from plist
-    const appPath = `/Applications/${ide.mac.app}.app`;
-    if (!fs.existsSync(appPath) && !fs.existsSync(path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`))) {
-      return { ok: false };
-    }
-    try {
-      const version = execSync(
-        `defaults read "/Applications/${ide.mac.app}.app/Contents/Info.plist" CFBundleShortVersionString`,
-        { stdio: 'pipe', encoding: 'utf8' }
-      ).trim();
-      return { ok: true, version };
-    } catch {
-      return { ok: true, version: null };
-    }
-  }
-
-  // Windows exe / Linux path / CLI — try --version
-  try {
-    const cmd = ide.strategy === 'win-exe'
-      ? `"${(ide.win?.paths || []).map(expandWinPath).find(p => fs.existsSync(p))}"`
-      : ide.strategy === 'linux-path'
-        ? `"${(ide.linux?.paths || []).find(p => fs.existsSync(p))}"`
-        : `"${ide.cmd}"`;
-    const result  = execSync(`${cmd} --version`, { stdio: 'pipe', encoding: 'utf8' });
-    const version = result.split('\n')[0].trim();
-    return { ok: true, version };
-  } catch {
-    return { ok: false };
-  }
-};
-
-// ── Tracking structure ────────────────────────────────────────────────────────
-
-const emptySlot = () => ({
-  branch:       null,
-  timestamp:    null,
-  launchedAt:   null,
-  status:       null,
-  missingCount: 0,
-  worktreePath: null,
-});
-
-const generateTrackingStructure = (config) => {
-  const bt = config.backend?.type;
-
-  const structure = {
-    client: {
-      UI:            emptySlot(),
-      LOGIC:         emptySlot(),
-      FORMS:         emptySlot(),
-      ROUTING:       emptySlot(),
-      TESTING:       emptySlot(),
-      ACCESSIBILITY: emptySlot(),
-    },
-    shared: {
-      SECURITY: emptySlot(),
-    },
-  };
-
-  if (bt === 'separate') {
-    structure.backend = {
-      API:     emptySlot(),
-      LOGIC:   emptySlot(),
-      AUTH:    emptySlot(),
-      DB:      emptySlot(),
-      EVENTS:  emptySlot(),
-      JOBS:    emptySlot(),
-      TESTING: emptySlot(),
-    };
-  }
-
-  return structure;
-};
-
-// ── GitHub remote setup ───────────────────────────────────────────────────────
-
-const detectGitHubUser = () => {
-  try {
-    return execSync('gh api user --jq .login',
-      { encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-  try {
-    return execSync('git config user.name',
-      { encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-  return null;
-};
-
-const setupUserRemote = (ROOT, projectName) => {
-  let currentOrigin = null;
-  try {
-    currentOrigin = execSync('git remote get-url origin',
-      { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
-  } catch {}
-
-  // Already has their own remote — nothing to do
-  if (currentOrigin && !currentOrigin.includes('multi-agents-template')) return;
-
-  // Demote template origin to upstream
-  if (currentOrigin?.includes('multi-agents-template')) {
-    try {
-      execSync('git remote remove origin', { cwd: ROOT, stdio: 'pipe' });
-      execSync(`git remote add upstream ${currentOrigin}`, { cwd: ROOT, stdio: 'pipe' });
-      console.log(dim('  ℹ Template remote moved to upstream'));
-    } catch {}
-  }
-
-  // Write flag — agent will handle remote setup on first session
-  const flagPath = path.join(ROOT, '.scaffold', '.remote-setup-needed');
-  fs.writeFileSync(flagPath, JSON.stringify({
-    projectName,
-    createdAt: new Date().toISOString(),
-  }), 'utf8');
-
-  console.log(`\n  ${yellow('ℹ No remote configured.')} Your first agent session will set this up.`);
-  console.log(dim('  All work stays local until then.\n'));
-};
-
-const renderTrajectoryLines = (lines) => {
-  const HEADERS = ['Benefits', 'Best for', 'Use agents for', 'Handle manually'];
-  lines.forEach(l => {
-    if (!l) { console.log(''); return; }
-    if (l.startsWith('⚠'))         console.log(`  ${yellow(l)}`);
-    else if (HEADERS.includes(l))  console.log(`\n  ${bold(l)}`);
-    else if (l.startsWith('·'))    console.log(`  ${l}`);
-    else                           console.log(`  ${dim(l)}`);
-  });
-};
+// ── Readline ──────────────────────────────────────────────────────────────────
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -478,25 +168,30 @@ const showList = (items, showSkip = false) => {
   if (showSkip) console.log(`  ${dim('0.')} Skip ${dim('(agent will propose when needed)')}`);
 };
 
-// Sentinel value returned when user picks ← Restart
-const BACK = Symbol('BACK');
-
 const selectRequired = async (prompt, items) => {
-  const idx = await arrowSelect(prompt, items.map(i => ({ label: typeof i === 'string' ? i : i.label })), rl, true);
-  if (idx === items.length) return BACK;
-  return items[idx];
+  while (true) {
+    console.log(`\n${bold(prompt)}`);
+    showList(items);
+    const input = await ask(`\n  ${bold('Select')} ${dim(`(1-${items.length})`)}: `);
+    const index = parseInt(input) - 1;
+    if (!isNaN(index) && index >= 0 && index < items.length) return items[index];
+    console.log(yellow(`  Please enter a number between 1 and ${items.length}.`));
+  }
 };
 
 const selectOptional = async (prompt, items) => {
   if (!items || items.length === 0) return null;
-  const choices = [
-    ...items.map(i => ({ label: typeof i === 'string' ? i : i.label })),
-    { label: dim('Skip (agent will propose when needed)') },
-  ];
-  const idx = await arrowSelect(prompt, choices, rl, true);
-  if (idx === choices.length) return BACK;
-  if (idx === items.length) return null;
-  return typeof items[idx] === 'string' ? items[idx] : items[idx].value;
+  while (true) {
+    console.log(`\n${bold(prompt)}`);
+    showList(items, true);
+    const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${items.length})`)}: `);
+    if (input === '0' || input === '') return null;
+    const index = parseInt(input) - 1;
+    if (!isNaN(index) && index >= 0 && index < items.length) {
+      return typeof items[index] === 'string' ? items[index] : items[index].value;
+    }
+    console.log(yellow(`  Invalid selection. Please enter a number between 0 and ${items.length}.`));
+  }
 };
 
 const separator = () => console.log(`\n${dim('─'.repeat(60))}`);
@@ -556,53 +251,13 @@ const copyDir = (src, dest) => {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const main = async () => {
-
-  // ── Lock check ───────────────────────────────────────────────────────────────
-
-  if (fs.existsSync(LOCK_FILE)) {
-    const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
-    const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
-
-    console.log(`\n${yellow('  This project has already been initialized.')}`);
-    console.log(dim(`  Initialized on: ${ts}\n`));
-    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
-    console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
-    console.log(`  ${dim('3.')} Exit\n`);
-
-    const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
-
-    if (choice === '1') {
-      console.log('');
-      rl2.close();
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-        stdio: 'inherit',
-        cwd: ROOT,
-      });
-      child.on('exit', (code) => process.exit(code));
-      return;
-    } else if (choice === '2') {
-      console.log(yellow('\n  Resetting configuration...\n'));
-      fs.unlinkSync(LOCK_FILE);
-      const configPath = path.join(RUNTIME_DIR, '.config.json');
-      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
-      rl2.close();
-      console.log(green('  Reset complete. Re-running initialization...\n'));
-      // Fall through to run init again
-    } else {
-      console.log(dim('\n  Exited.\n'));
-      rl2.close();
-      return;
-    }
-  }
-
   console.log('\n');
   console.log(bold(cyan('  Multi-Agent Monorepo Template')));
   console.log(dim('  Project Initializer\n'));
   separator();
 
   console.log(`\n${bold('Let\'s configure your project.')}`);
-  console.log(dim('  Use arrow keys to select. Optional fields can be skipped.\n'));
+  console.log(dim('  Required fields must be selected. Optional fields can be skipped (press 0 or Enter).\n'));
   console.log(dim('  Skipped fields will be resolved by the agent when first needed.\n'));
 
   // ── Project name ────────────────────────────────────────────────────────────
@@ -613,14 +268,6 @@ const main = async () => {
     if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
   }
 
-  const restartIfBack = (val) => {
-    if (val !== BACK) return false;
-    rl.close();
-    const { spawn } = require('child_process');
-    spawn('node', [__filename], { stdio: 'inherit', cwd: ROOT }).on('exit', c => process.exit(c));
-    return true;
-  };
-
   separator();
 
   // ── Client ──────────────────────────────────────────────────────────────────
@@ -628,14 +275,10 @@ const main = async () => {
   console.log(`\n${bold(blue('Client configuration'))}`);
 
   const clientFw    = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
-  if (restartIfBack(clientFw)) return;
   const clientLang  = clientFw.language;
   const clientState = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
-  if (restartIfBack(clientState)) return;
   const clientUi    = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
-  if (restartIfBack(clientUi)) return;
   const clientStyle = await selectOptional('Styling:', STYLING_OPTIONS);
-  if (restartIfBack(clientStyle)) return;
 
   separator();
 
@@ -650,11 +293,11 @@ const main = async () => {
   let backendOrm  = null;
   let backendAuth = null;
   let backendType = null;
-  let backendFwObj = null;
 
   if (clientFw.integratedBackend) {
     console.log(dim(`  ${clientFw.value} supports server-side rendering and API routes.\n`));
-    useIntegratedBackend = await arrowConfirm(`Use integrated backend (${clientFw.value} API routes/SSR) instead of a separate backend?`, rl);
+    const integratedAnswer = await ask(`  ${bold('Use integrated backend')} ${dim(`(${clientFw.value} API routes/SSR)`)} ${dim('instead of a separate backend? (y/n)')}: `);
+    useIntegratedBackend = integratedAnswer.toLowerCase() === 'y';
 
     if (useIntegratedBackend) {
       backendType = 'integrated';
@@ -665,83 +308,21 @@ const main = async () => {
   if (!useIntegratedBackend) {
     console.log(dim('  You can skip the backend framework and decide later.\n'));
 
-    const backendChoices = [
-      ...BACKEND_FRAMEWORKS.map(f => ({ label: f.label || f.value })),
-      { label: dim('Skip (decide later)') },
-    ];
-    const backendIdx = await arrowSelect('Backend framework:', backendChoices, rl);
-    backendFwObj = backendIdx === BACKEND_FRAMEWORKS.length ? null : BACKEND_FRAMEWORKS[backendIdx];
+    const backendFwObj = await (async () => {
+      console.log(`\n${bold('Backend framework:')}`);
+      showList(BACKEND_FRAMEWORKS, true);
+      const input = await ask(`\n  ${bold('Select')} ${dim(`(0-${BACKEND_FRAMEWORKS.length})`)}: `);
+      if (input === '0' || input === '') return null;
+      const index = parseInt(input) - 1;
+      if (isNaN(index) || index < 0 || index >= BACKEND_FRAMEWORKS.length) return null;
+      return BACKEND_FRAMEWORKS[index];
+    })();
 
     backendFw   = backendFwObj ? backendFwObj.value    : null;
     backendLang = backendFwObj ? backendFwObj.language : null;
     backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
-    if (restartIfBack(backendOrm)) return;
     backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
-    if (restartIfBack(backendAuth)) return;
     backendType = backendFw ? 'separate' : null;
-  }
-
-  separator();
-
-  // ── Environment ─────────────────────────────────────────────────────────────
-
-  console.log(`\n${bold(blue('Environment'))}`);
-
-  const osName = { darwin: 'macOS', win32: 'Windows', linux: 'Linux' }[process.platform] || process.platform;
-  console.log(`\n  ${dim('OS detected:')} ${bold(osName)}`);
-  console.log(dim('  Scanning for installed IDEs...\n'));
-
-  const ideOptions = buildIDEOptions();
-
-  const detectedIDEs  = ideOptions.filter(o => o.detected);
-  const undetectedIDEs = ideOptions.filter(o => !o.detected && o.cmd);
-  const manualOption  = ideOptions.filter(o => !o.cmd);
-
-  // Detected first → undetected → manual
-  const sortedIdeOptions = [...detectedIDEs, ...undetectedIDEs, ...manualOption];
-
-  if (detectedIDEs.length > 1) {
-    console.log(`\n  ${yellow('Multiple IDEs found on this machine')} — select your preference:\n`);
-  } else if (detectedIDEs.length === 1) {
-    console.log(`\n  ${green(`1 IDE found:`)} ${bold(detectedIDEs[0].name)}\n`);
-  } else {
-    console.log(`\n  ${yellow('No IDEs detected on this machine.')}\n`);
-  }
-
-  let ideChoice;
-  while (true) {
-    ideChoice = await selectRequired('* IDE / editor (required):', sortedIdeOptions);
-    if (restartIfBack(ideChoice)) return;
-
-    // ── Confirmation ──────────────────────────────────────────────────────────
-    if (ideChoice.cmd && !ideChoice.detected) {
-      console.log(`\n  ${yellow('⚠')} ${bold(ideChoice.name)} was not detected on this machine.`);
-      console.log(dim('  It may not open automatically when launching a task.\n'));
-      if (!await arrowConfirm('Continue with this IDE anyway?', rl)) {
-        console.log(dim('  Re-selecting...\n'));
-        continue;
-      }
-    }
-
-    // ── Double-check ──────────────────────────────────────────────────────────
-    if (!ideChoice.cmd) {
-      // Manual — no verification needed
-      console.log(dim('  Manual mode — worktree path will be printed at launch.'));
-      break;
-    }
-
-    console.log(dim(`\n  Verifying ${ideChoice.name}...`));
-    const verified = verifyIDE(ideChoice);
-
-    if (verified.ok) {
-      const versionStr = verified.version ? dim(` (${verified.version})`) : '';
-      console.log(`  ${green('✓')} ${ideChoice.name} confirmed${versionStr}`);
-      break;
-    }
-
-    console.log(`  ${yellow('!')} Could not verify ${ideChoice.name}. The CLI may not be installed or accessible.`);
-    if (await arrowConfirm('Continue with this IDE anyway?', rl)) break;
-    console.log(dim('  Re-selecting...\n'));
   }
 
   separator();
@@ -761,17 +342,12 @@ const main = async () => {
     summaryLine('ORM',               backendOrm);
     summaryLine('Auth',              backendAuth);
   }
-  summaryLine('IDE / Editor',      ideChoice.name);
 
   console.log('');
   console.log(dim('  y = confirm  |  n = abort  |  e = edit (start over)\n'));
-  const confirmIdx = await arrowSelect('Confirm and write to config files?', [
-    { label: `${green('✓')} Confirm — write config and set up project` },
-    { label: `${yellow('↺')} Restart — redo configuration` },
-    { label: `${red('✗')} Abort` },
-  ], rl);
+  const confirm = await ask(`${bold('Confirm and write to config files?')} ${dim('(y/n/e)')}: `);
 
-  if (confirmIdx === 1) {
+  if (confirm.toLowerCase() === 'e') {
     console.log(yellow('\n  Restarting configuration...\n'));
     rl.close();
     const { spawn } = require('child_process');
@@ -780,7 +356,7 @@ const main = async () => {
     return;
   }
 
-  if (confirmIdx === 2) {
+  if (confirm.toLowerCase() !== 'y') {
     console.log(yellow('\n  Aborted. No files were changed.\n'));
     rl.close();
     return;
@@ -812,8 +388,6 @@ const main = async () => {
   copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
   if (backendType === 'separate') {
     copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
-    // Ensure backend/ is tracked by git even before the API agent scaffolds
-    fs.writeFileSync(path.join(ROOT, 'backend', '.gitkeep'), '', 'utf8');
   }
   fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
   fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
@@ -863,33 +437,12 @@ const main = async () => {
   ensureGitignore('.agents-core/');
   ensureGitignore('.scaffold/');
   ensureGitignore('.workflow/');
-
-  // Remove template-specific gitignore entries so generated files can be committed
-  const gitignorePath = path.join(ROOT, '.gitignore');
-  let gitignoreContent = fs.readFileSync(gitignorePath, 'utf8');
-  ['client/', 'backend/', 'shared/', 'CLAUDE.md', 'CONTRACTS.md', 'BUILD_STATE.md'].forEach(entry => {
-    gitignoreContent = gitignoreContent.replace(`\n${entry}`, '');
-    gitignoreContent = gitignoreContent.replace(`${entry}\n`, '');
-    gitignoreContent = gitignoreContent.replace(entry, '');
-  });
-  fs.writeFileSync(gitignorePath, gitignoreContent.trim() + '\n', 'utf8');
   console.log(`  ${green('✓')} .gitignore updated`);
 
   // ── Write .config.json ───────────────────────────────────────────────────────
 
   const config = {
     projectName,
-    ide: {
-      name:       ideChoice.name,
-      strategy:   ideChoice.strategy,
-      cmd:        ideChoice.cmd    || null,
-      app:        ideChoice.mac?.app  || null,
-      openArgs:   process.platform === 'darwin' ? (ideChoice.mac?.args  || [])
-                : process.platform === 'win32'  ? (ideChoice.win?.args  || [])
-                :                                 (ideChoice.linux?.args || []),
-      winPaths:   (ideChoice.win?.paths  || []).map(expandWinPath),
-      linuxPaths: ideChoice.linux?.paths || [],
-    },
     client: {
       framework: clientFw.value,
       language:  clientLang,
@@ -989,67 +542,6 @@ If a dependency is not met:
   fs.writeFileSync(path.join(ROOT, 'BUILD_STATE.md'), buildState, 'utf8');
   console.log(`  ${green('✓')} BUILD_STATE.md generated`);
 
-  // ── Generate user project package.json ───────────────────────────────────────
-
-  const userPackage = {
-    name:    projectName.toLowerCase().replace(/\s+/g, '-'),
-    version: '1.0.0',
-    private: true,
-    dependencies: {
-      prompts: '^2.4.2',
-    },
-    scripts: {
-      launch:   'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/launch.js',
-      complete: 'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/complete.js',
-    },
-  };
-  fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(userPackage, null, 2), 'utf8');
-  console.log(`  ${green('✓')} package.json generated`);
-
-  // ── Install dependencies ──────────────────────────────────────────────────────
-
-  try {
-    console.log(dim('  Installing dependencies...'));
-    execSync('npm install', { cwd: ROOT, stdio: 'pipe' });
-    console.log(`  ${green('✓')} Dependencies installed`);
-  } catch {
-    console.log(yellow('  ⚠ npm install failed — run npm install manually before launching'));
-  }
-
-  // ── Tracking ──────────────────────────────────────────────────────────────────
-
-  const trackingPath = path.join(RUNTIME_DIR, '.tracking.json');
-  if (!fs.existsSync(trackingPath)) {
-    const trackingStructure = generateTrackingStructure(config);
-    fs.writeFileSync(trackingPath, JSON.stringify(trackingStructure, null, 2), 'utf8');
-    console.log(`  ${green('✓')} .tracking.json generated`);
-  } else {
-    console.log(dim('  ℹ .tracking.json already exists — preserved'));
-  }
-
-  // ── Generate .paths.json ──────────────────────────────────────────────────────
-
-  const pathsMap = {};
-  const clientConventions = FRAMEWORK_CONVENTIONS.client[clientFw?.value] || {};
-  const backendConventions = FRAMEWORK_CONVENTIONS.backend[backendFwObj?.value] || {};
-
-  if (Object.keys(clientConventions).length) {
-    pathsMap.client = {};
-    Object.entries(clientConventions).forEach(([key, value]) => {
-      pathsMap.client[key] = { expected: value, current: null, status: 'pending' };
-    });
-  }
-
-  if (Object.keys(backendConventions).length) {
-    pathsMap.backend = {};
-    Object.entries(backendConventions).forEach(([key, value]) => {
-      pathsMap.backend[key] = { expected: value, current: null, status: 'pending' };
-    });
-  }
-
-  fs.writeFileSync(path.join(RUNTIME_DIR, '.paths.json'), JSON.stringify(pathsMap, null, 2), 'utf8');
-  console.log(`  ${green('✓')} .paths.json generated`);
-
   // ── Lock ─────────────────────────────────────────────────────────────────────
 
   fs.writeFileSync(LOCK_FILE, new Date().toISOString());
@@ -1066,177 +558,30 @@ If a dependency is not met:
     console.log(dim('     git add . && git commit -m "init: project configuration"'));
   }
 
-  // ── Pre-commit hook — block direct commits to main ───────────────────────────
-
-  try {
-    const hooksDir  = path.join(ROOT, '.git', 'hooks');
-    const hookPath  = path.join(hooksDir, 'pre-commit');
-    const hookScript = `#!/bin/sh
-branch=$(git symbolic-ref --short HEAD 2>/dev/null)
-if [ "$branch" = "main" ]; then
-  echo ""
-  echo "  ⚠ Direct commits to main are not allowed."
-  echo "    Use npm run launch to start a task."
-  echo ""
-  exit 1
-fi
-`;
-    if (!fs.existsSync(hookPath)) {
-      fs.writeFileSync(hookPath, hookScript, { mode: 0o755 });
-      console.log(dim('  ℹ Pre-commit hook installed — direct main commits blocked'));
-    }
-  } catch { /* best-effort */ }
-
-  // ── Remote setup ─────────────────────────────────────────────────────────────
-
-  setupUserRemote(ROOT, projectName);
-
-  // ── Trajectory selection ─────────────────────────────────────────────────────
+  // ── Chain to launch.js ────────────────────────────────────────────────────────
 
   separator();
   console.log(`\n${bold(green('  Project initialized successfully!'))}\n`);
-  console.log(`  ${bold('How do you want to build?')}\n`);
 
-  console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
-  console.log(`${dim('     · Every task should start with npm run launch')}`);
-  console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
-  console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
-  console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
-  console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
-  console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
+  const launchInput = await ask(`  ${bold('Ready to launch your first task?')} ${dim('(y/n — default: n)')}: `);
+  const launch = launchInput.toLowerCase() || 'n';
 
-  console.log(`  ${dim('2.')} ${bold('Shared Orchestration')}`);
-  console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
-  console.log(`${dim('     · Agent tasks run in git worktrees; your work happens directly in the project')}`);
-  console.log(`${dim('     · Agent tasks are token-efficient; your tasks cost only what you prompt')}`);
-  console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
-  console.log(`${dim('       you for areas where requirements are still evolving')}`);
-  console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
-
-  const TRAJECTORY_DETAILS = {
-    '1': {
-      label: 'Multi-Agent Driven Orchestration',
-      full: [
-        'Every task must start with npm run launch.',
-        'Agent sessions load only task-relevant context, enabling reliable',
-        'chaining, predictable behavior, and efficient token usage.',
-        '',
-        '⚠ If you commit directly to main yourself, you bypass the framework',
-        '  and break task tracking for any active agent branches.',
-        '',
-        'Benefits',
-        '· Scoped context per task',
-        '· Predictable token consumption',
-        '· Lower cost than maintaining large, persistent sessions',
-        '· Better isolation between parallel work streams',
-      ],
-      next: 'launch',
-    },
-    '2': {
-      label: 'Shared Orchestration',
-      full: [
-        'You and agents work in the same codebase, each with clearly',
-        'defined ownership. File boundaries must be established before',
-        'work begins and remain fixed throughout the task.',
-        'Agents excel when scope is well-defined;',
-        'you excel when requirements are evolving.',
-        '',
-        'Use agents for',
-        '· Multi-file features',
-        '· Structured implementation work',
-        '· Domain-specific tasks',
-        '· Changes expected to exceed ~200 lines',
-        '',
-        'Handle manually',
-        '· Targeted bug fixes',
-        '· Configuration changes',
-        '· Small refactors',
-        '· Single-file edits under ~50 lines',
-        '',
-        '⚠ Avoid overlapping file ownership. Working on the same files',
-        '  as an active agent will create merge conflicts when merged.',
-        '⚠ If you are spending time repeatedly clarifying scope, stop',
-        '  and do the task yourself. The coordination cost often',
-        '  exceeds the implementation cost.',
-        '',
-        'Benefits',
-        '· Maximum agent efficiency for well-defined work',
-        '· Human flexibility where requirements change',
-        '· Scales well across large projects',
-        '· Most adaptable workflow — requires the most discipline',
-      ],
-      next: 'launch',
-    },
-  };
-
-  // Wrap in loop to support back navigation
-  let trajectory = null;
-  trajectoryLoop: while (true) {
-    const trajIdx = await arrowSelect('How do you want to build?', [
-      { label: bold('Multi-Agent Driven Orchestration') },
-      { label: bold('Shared Orchestration') },
-    ], rl);
-    trajectory = String(trajIdx + 1);
-
-    const selected = TRAJECTORY_DETAILS[trajectory];
-    separator();
-    console.log(`\n  ${green('✓')} ${bold(selected.label)}\n`);
-    renderTrajectoryLines(selected.full);
+  if (launch === 'y') {
+    rl.close();
     console.log('');
-
-    const confirmIdx = await arrowSelect('Confirm?', [
-      { label: `${green('✓')} Confirm` },
-      { label: `${yellow('←')} Back — pick differently` },
-    ], rl);
-    if (confirmIdx === 0) break trajectoryLoop;
-    trajectory = null;
+    const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+      stdio: 'inherit',
+      cwd: ROOT,
+    });
+    child.on('exit', (code) => process.exit(code));
+  } else {
+    console.log('');
+    console.log(`  ${bold('When ready, run:')}`); 
+    console.log(`  ${cyan('npm run launch')}\n`);
     separator();
-    console.log(`\n  ${bold('How do you want to build?')}\n`);
-    console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
-    console.log(`${dim('     · Every task should start with npm run launch')}`);
-    console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
-    console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
-    console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
-    console.log(`${yellow('     ⚠ If you commit directly to main yourself, you bypass the framework')}`);
-    console.log(`${yellow('       and break task tracking for any active agent branches')}\n`);
-    console.log(`  ${dim('2.')} ${bold('Shared Orchestration')}`);
-    console.log(`${dim('     · You and agents co-build — each owning a defined part of the codebase')}`);
-    console.log(`${dim('     · Agent tasks run in git worktrees; your work happens directly in the project')}`);
-    console.log(`${dim('     · Agent tasks are token-efficient; your tasks cost only what you prompt')}`);
-    console.log(`${dim('     · Define boundaries before work begins — agents for well-scoped work,')}`);
-    console.log(`${dim('       you for areas where requirements are still evolving')}`);
-    console.log(`${yellow('     ⚠ If you and an agent touch the same file, expect merge conflicts')}\n`);
+    console.log('');
+    rl.close();
   }
-
-  const selected = TRAJECTORY_DETAILS[trajectory];
-
-  // Store trajectory in config
-  try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(RUNTIME_DIR, '.config.json'), 'utf8'));
-    cfg.trajectory = selected.label.toLowerCase().replace(/ /g, '-');
-    fs.writeFileSync(path.join(RUNTIME_DIR, '.config.json'), JSON.stringify(cfg, null, 2), 'utf8');
-  } catch { /* best-effort */ }
-
-  if (selected.next === 'launch') {
-    const launchConfirm = await arrowConfirm('Ready to launch your first task?', rl);
-    if (launchConfirm) {
-      rl.close();
-      console.log('');
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
-        stdio: 'inherit',
-        cwd: ROOT,
-      });
-      child.on('exit', (code) => process.exit(code));
-      return;
-    }
-  }
-
-  console.log('');
-  console.log(`  ${bold('When ready, run:')}`);
-  console.log(`  ${cyan('npm run launch')}\n`);
-  separator();
-  console.log('');
-  rl.close();
 };
 
 main().catch((err) => {
