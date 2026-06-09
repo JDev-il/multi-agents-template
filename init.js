@@ -812,6 +812,8 @@ const main = async () => {
   copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
   if (backendType === 'separate') {
     copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
+    // Ensure backend/ is tracked by git even before the API agent scaffolds
+    fs.writeFileSync(path.join(ROOT, 'backend', '.gitkeep'), '', 'utf8');
   }
   fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
   fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
