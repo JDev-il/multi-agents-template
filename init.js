@@ -17,21 +17,25 @@ const path      = require('path');
 let prompts;
 try { prompts = require('prompts'); } catch { prompts = null; }
 
-const arrowSelect = async (message, choices, rl) => {
+const arrowSelect = async (message, choices, rl, showBack = false) => {
+  const allChoices = showBack
+    ? [...choices, { label: dim('← Restart configuration') }]
+    : choices;
+
   if (prompts && process.stdin.isTTY) {
     const res = await prompts({
       type:    'select',
       name:    'value',
       message,
-      choices: choices.map((c, i) => ({ title: typeof c === 'string' ? c : c.label, value: i })),
+      choices: allChoices.map((c, i) => ({ title: typeof c === 'string' ? c : c.label, value: i })),
     }, { onCancel: () => process.exit(0) });
     return res.value ?? 0;
   }
-  choices.forEach((c, i) => console.log(`  ${dim(`${i + 1}.`)} ${typeof c === 'string' ? c : c.label}`));
+  allChoices.forEach((c, i) => console.log(`  ${dim(`${i + 1}.`)} ${typeof c === 'string' ? c : c.label}`));
   return new Promise(resolve => {
-    rl.question(`\n  Select (1-${choices.length}): `, ans => {
+    rl.question(`\n  Select (1-${allChoices.length}): `, ans => {
       const n = parseInt(ans) - 1;
-      resolve(!isNaN(n) && n >= 0 && n < choices.length ? n : 0);
+      resolve(!isNaN(n) && n >= 0 && n < allChoices.length ? n : 0);
     });
   });
 };
@@ -474,8 +478,12 @@ const showList = (items, showSkip = false) => {
   if (showSkip) console.log(`  ${dim('0.')} Skip ${dim('(agent will propose when needed)')}`);
 };
 
+// Sentinel value returned when user picks ← Restart
+const BACK = Symbol('BACK');
+
 const selectRequired = async (prompt, items) => {
-  const idx = await arrowSelect(prompt, items.map(i => ({ label: typeof i === 'string' ? i : i.label })), rl);
+  const idx = await arrowSelect(prompt, items.map(i => ({ label: typeof i === 'string' ? i : i.label })), rl, true);
+  if (idx === items.length) return BACK;
   return items[idx];
 };
 
@@ -485,7 +493,8 @@ const selectOptional = async (prompt, items) => {
     ...items.map(i => ({ label: typeof i === 'string' ? i : i.label })),
     { label: dim('Skip (agent will propose when needed)') },
   ];
-  const idx = await arrowSelect(prompt, choices, rl);
+  const idx = await arrowSelect(prompt, choices, rl, true);
+  if (idx === choices.length) return BACK;
   if (idx === items.length) return null;
   return typeof items[idx] === 'string' ? items[idx] : items[idx].value;
 };
@@ -604,6 +613,14 @@ const main = async () => {
     if (!projectName) console.log(yellow('  Project name is required. Please enter a name.'));
   }
 
+  const restartIfBack = (val) => {
+    if (val !== BACK) return false;
+    rl.close();
+    const { spawn } = require('child_process');
+    spawn('node', [__filename], { stdio: 'inherit', cwd: ROOT }).on('exit', c => process.exit(c));
+    return true;
+  };
+
   separator();
 
   // ── Client ──────────────────────────────────────────────────────────────────
@@ -611,10 +628,14 @@ const main = async () => {
   console.log(`\n${bold(blue('Client configuration'))}`);
 
   const clientFw    = await selectRequired('* Client framework (required):', CLIENT_FRAMEWORKS);
+  if (restartIfBack(clientFw)) return;
   const clientLang  = clientFw.language;
   const clientState = await selectOptional('State management:', STATE_OPTIONS[clientFw.value] || []);
+  if (restartIfBack(clientState)) return;
   const clientUi    = await selectOptional('UI library:', UI_OPTIONS[clientFw.value] || []);
+  if (restartIfBack(clientUi)) return;
   const clientStyle = await selectOptional('Styling:', STYLING_OPTIONS);
+  if (restartIfBack(clientStyle)) return;
 
   separator();
 
@@ -654,7 +675,9 @@ const main = async () => {
     backendFw   = backendFwObj ? backendFwObj.value    : null;
     backendLang = backendFwObj ? backendFwObj.language : null;
     backendOrm  = backendFw ? await selectOptional('ORM / database layer:', ORM_OPTIONS[backendFw] || []) : null;
+    if (restartIfBack(backendOrm)) return;
     backendAuth = backendFw ? await selectOptional('Auth strategy:', AUTH_OPTIONS[backendFw] || []) : null;
+    if (restartIfBack(backendAuth)) return;
     backendType = backendFw ? 'separate' : null;
   }
 
@@ -688,6 +711,7 @@ const main = async () => {
   let ideChoice;
   while (true) {
     ideChoice = await selectRequired('* IDE / editor (required):', sortedIdeOptions);
+    if (restartIfBack(ideChoice)) return;
 
     // ── Confirmation ──────────────────────────────────────────────────────────
     console.log(`\n  Selected: ${bold(ideChoice.name)}`);
