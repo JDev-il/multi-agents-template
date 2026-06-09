@@ -1,39 +1,33 @@
-# Multi-Agent Monorepo Template
+# Multi Agents
 
-A scaffolding framework for building full-stack applications using multiple
-Claude Code agents working simultaneously in isolated git worktrees — each
-agent owning a specific domain, all coordinating through shared state.
+Multi-agent workflow orchestration for Claude Code — isolated git worktrees, structured state tracking, autonomous task chaining.
 
 ---
 
-## How It Works
-
-Three commands drive the entire workflow:
+## Install
 
 ```bash
-npm run init      # one-time project setup
-npm run launch    # create a new agent workspace
-npm run complete  # merge finished work, start next task
+npm install -g multi-agents-cli
 ```
-
-No manual worktree management. No manual branch creation. No repeated context.
 
 ---
 
 ## Quickstart
 
 ```bash
-git clone https://github.com/JDev-il/multi-agents-template.git my-project
+multi-agents init my-project
 cd my-project
-npm run init
+npm run launch
 ```
 
-`npm run init` will:
-- Ask for your project name, stack, and IDE preference
+`multi-agents init` will:
+- Guide you through project name, stack, IDE, and build trajectory using arrow-key selection
 - Fetch all templates and workflow scripts from multi-agents-core
 - Generate `BUILD_STATE.md`, `CONTRACTS.md`, `CLAUDE.md`
+- Generate `.scaffold/.paths.json` with expected framework paths
 - Initialize agent tracking (`.scaffold/.tracking.json`)
-- Set up git remote handling (see [Remote Setup](#remote-setup))
+- Install `prompts` dependency for arrow-key navigation
+- Set up git remote handling (first agent session handles this automatically)
 
 ---
 
@@ -60,6 +54,39 @@ the tracking slot.
 
 `npm run complete` chains back to `npm run launch`. Pick the next agent
 and continue building.
+
+---
+
+## Build Trajectories
+
+Choose during `multi-agents init`:
+
+**Multi-Agent Driven Orchestration** *(recommended)*
+Every task should start with `npm run launch`. Each agent works in its own
+git worktree — an isolated branch and folder that merges back into main via
+`npm run complete`. Faster builds and lower token spend than a single long session.
+⚠ If you commit directly to main yourself, you bypass the framework and break
+task tracking for any active agent branches.
+
+**Shared Orchestration**
+You and agents co-build — each owning a defined part of the codebase. Agent
+tasks run in git worktrees; your work happens directly in the project. Define
+boundaries before work begins.
+⚠ If you and an agent touch the same file, expect merge conflicts.
+
+---
+
+## Supported Frameworks
+
+### Client
+Next.js · Angular · Vue/Nuxt · SvelteKit · Vite+React · Remix
+
+### Backend (separate)
+Express · NestJS · Fastify · FastAPI · Django
+
+Each framework has a dedicated scaffold instruction file in
+`client/frameworks/` and `backend/frameworks/` — agents read these
+before scaffolding to ensure files land in the correct location.
 
 ---
 
@@ -101,8 +128,7 @@ and continue building.
 
 ## Running the App
 
-After agents complete their tasks and merge into main, the app lives
-in `client/` (and `backend/` if configured separately):
+After agents complete their tasks and merge into main:
 
 ```bash
 cd client
@@ -117,15 +143,13 @@ For deployment (Vercel, Netlify etc.) set the **root directory** to
 
 ## Remote Setup
 
-`npm run init` does NOT configure a GitHub remote. It removes the template
-origin and leaves your project local-only.
-
-**Your first agent session handles remote setup automatically:**
+`multi-agents init` does NOT configure a GitHub remote. Your first agent
+session handles remote setup automatically:
 
 1. Checks SSH, gh CLI, and HTTPS credentials in order
-2. If a remote is reachable — uses it
-3. If not — opens your browser to `github.com/new` with the repo name
-   pre-filled, waits for you to create it, then wires everything up
+2. If a remote repo exists — evaluates its state (orphaned branches, completion status, age)
+3. Auto-clears old sessions or surfaces a decision when unfinished work is detected
+4. If no remote — opens your browser to `github.com/new` with the repo name pre-filled
 
 No manual `git remote add` needed.
 
@@ -141,6 +165,7 @@ No manual `git remote add` needed.
 | `TASK.md` | Per-task instructions — lives in the agent's worktree |
 | `.scaffold/.config.json` | Project config written at init time |
 | `.scaffold/.tracking.json` | Active agent state — managed by workflow scripts |
+| `.scaffold/.paths.json` | Expected and actual framework paths — updated by agents after scaffolding |
 
 > **Never edit `BUILD_STATE.md` directly.** `npm run complete` owns all
 > updates to it. Editing it in a worktree causes merge conflicts.
@@ -152,13 +177,15 @@ No manual `git remote add` needed.
 Context loads in this order for every agent:
 
 ```
-Root CLAUDE.md          ← global rules, protocols, tracking schema
+Root CLAUDE.md             ← global rules, protocols, tracking schema
         ↓
-client/CLAUDE.md        ← stack config, client-specific rules
+client/CLAUDE.md           ← stack config, framework scaffold instructions
         ↓
-agents/UI.md            ← agent-specific behavior and constraints
+client/frameworks/{fw}.md  ← exact scaffold commands and path conventions
         ↓
-TASK.md                 ← the specific task to execute
+agents/UI.md               ← agent-specific behavior and constraints
+        ↓
+TASK.md                    ← the specific task to execute
 ```
 
 Each layer narrows scope. Agents never need to be told what framework
@@ -180,8 +207,7 @@ The launcher enforces structural rules before any worktree is created:
 
 ## Tracking
 
-`.scaffold/.tracking.json` is the runtime state ledger. Every agent slot
-is pre-defined at init time:
+`.scaffold/.tracking.json` is the runtime state ledger:
 
 ```json
 {
@@ -203,6 +229,28 @@ Managed entirely by `launch.js` and `complete.js`. Never edit manually.
 
 ---
 
+## Path Tracking
+
+`.scaffold/.paths.json` maps expected and actual framework paths:
+
+```json
+{
+  "client": {
+    "typesDir": {
+      "expected": "client/src/types",
+      "current": null,
+      "status": "pending"
+    }
+  }
+}
+```
+
+**Status values:** `pending` (not yet scaffolded) · `verified` (agent confirmed path) · `diverged` (actual path differs from expected)
+
+Written at init time. Updated by agents after scaffolding their framework.
+
+---
+
 ## Running Commands From Anywhere
 
 `npm run launch` and `npm run complete` self-relocate to the repo root
@@ -211,41 +259,25 @@ the repo root, or anywhere inside the git tree — they always work.
 
 ---
 
-## Cloning vs Use as Template
-
-Both entry points work:
-
-**`git clone`** (quickstart, no GitHub account needed upfront)
-```bash
-git clone https://github.com/JDev-il/multi-agents-template.git my-project
-cd my-project
-npm run init
-```
-The template remote is automatically removed. Remote setup happens on first agent session.
-
-**Use as Template** (recommended for production projects)
-Click "Use this template" on GitHub to create a repo under your own account
-with a clean history. Then clone your new repo and run `npm run init`.
-
----
-
 ## Architecture
 
 ```
 my-project/
-├── client/               ← built by client agents, merges into main
-│   ├── package.json
+├── client/                    ← built by client agents, merges into main
+│   ├── frameworks/            ← scaffold instruction files per framework
 │   └── src/
-├── backend/              ← built by backend agents (if separate)
-├── shared/               ← shared agent files
-├── worktrees/            ← local only, gitignored
-│   └── client-my-project-ui-1780403456467/   ← isolated agent workspace
+├── backend/                   ← built by backend agents (if separate)
+│   └── frameworks/            ← scaffold instruction files per framework
+├── shared/
+├── worktrees/                 ← local only, gitignored
+│   └── client-my-project-ui-1780403456467/
 ├── CLAUDE.md
 ├── BUILD_STATE.md
 ├── CONTRACTS.md
 ├── .scaffold/
 │   ├── .config.json
 │   ├── .tracking.json
+│   ├── .paths.json
 │   └── .initialized
 └── .workflow/
     ├── launch.js
