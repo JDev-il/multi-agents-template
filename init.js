@@ -80,6 +80,24 @@ if (!fs.existsSync(RUNTIME_DIR)) {
 
 // ── Decision tree ─────────────────────────────────────────────────────────────
 
+const FRAMEWORK_CONVENTIONS = {
+  client: {
+    'Next.js':    { root: 'client', typesDir: 'client/src/types',             importAlias: '@/types'      },
+    'Angular':    { root: 'client', typesDir: 'client/src/app/core/types',    importAlias: null           },
+    'Nuxt':       { root: 'client', typesDir: 'client/types',                 importAlias: '~/types'      },
+    'SvelteKit':  { root: 'client', typesDir: 'client/src/lib/types',         importAlias: '$lib/types'   },
+    'Vite+React': { root: 'client', typesDir: 'client/src/types',             importAlias: null           },
+    'Remix':      { root: 'client', typesDir: 'client/app/types',             importAlias: null           },
+  },
+  backend: {
+    'Express':    { root: 'backend', typesDir:   'backend/src/types',         routesDir:  'backend/src/routes'      },
+    'NestJS':     { root: 'backend', dtoDir:     'backend/src/dto',           entitiesDir:'backend/src/entities'    },
+    'Fastify':    { root: 'backend', typesDir:   'backend/src/types',         routesDir:  'backend/src/routes'      },
+    'FastAPI':    { root: 'backend', schemasDir: 'backend/app/schemas',       modelsDir:  'backend/app/models'      },
+    'Django':     { root: 'backend', schemasDir: 'backend/api/serializers',   modelsDir:  'backend/api/models'      },
+  },
+};
+
 const CLIENT_FRAMEWORKS = [
   { label: 'Next.js',       value: 'Next.js',    language: 'TypeScript', integratedBackend: true  },
   { label: 'Angular',       value: 'Angular',    language: 'TypeScript', integratedBackend: false },
@@ -94,6 +112,7 @@ const BACKEND_FRAMEWORKS = [
   { label: 'Express',  value: 'Express',  language: 'TypeScript' },
   { label: 'Fastify',  value: 'Fastify',  language: 'TypeScript' },
   { label: 'Django',   value: 'Django',   language: 'Python'     },
+  { label: 'FastAPI',  value: 'FastAPI',  language: 'Python'     },
   { label: 'Laravel',  value: 'Laravel',  language: 'PHP'        },
   { label: 'Rails',    value: 'Rails',    language: 'Ruby'       },
 ];
@@ -129,6 +148,7 @@ const ORM_OPTIONS = {
   'Express':  ['Prisma', 'TypeORM', 'Drizzle', 'Sequelize'],
   'Fastify':  ['Prisma', 'TypeORM', 'Drizzle'],
   'Django':   ['Django ORM (built-in)', 'SQLAlchemy'],
+  'FastAPI':  ['SQLAlchemy', 'Tortoise ORM', 'Beanie (MongoDB)'],
   'Laravel':  ['Eloquent (built-in)'],
   'Rails':    ['Active Record (built-in)'],
 };
@@ -138,6 +158,7 @@ const AUTH_OPTIONS = {
   'Express':  ['Passport.js', 'JWT-only', 'OAuth2'],
   'Fastify':  ['fastify-jwt', 'Passport.js', 'OAuth2'],
   'Django':   ['Django Auth (built-in)', 'DRF TokenAuth', 'OAuth2'],
+  'FastAPI':  ['JWT-only', 'OAuth2', 'FastAPI-Users'],
   'Laravel':  ['Laravel Sanctum', 'Laravel Passport', 'JWT'],
   'Rails':    ['Devise', 'JWT', 'OAuth2'],
 };
@@ -160,18 +181,31 @@ const IDE_CANDIDATES = [
   {
     cmd:     'webstorm',
     name:    'WebStorm',
-    note:    'requires CLI launcher via Toolbox',
-    mac:     { app: 'WebStorm', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/opt/webstorm/bin/webstorm.sh'], args: [] },
+    mac:     { app: 'WebStorm', toolboxApp: 'WebStorm', args: [] },
+    win:     { paths: [
+      '{LOCALAPPDATA}\\JetBrains\\Toolbox\\scripts\\webstorm.cmd',
+      '{LOCALAPPDATA}\\Programs\\WebStorm\\bin\\webstorm64.exe',
+    ], args: [] },
+    linux:   { paths: [
+      `${os.homedir()}/.local/bin/webstorm`,
+      '/opt/webstorm/bin/webstorm.sh',
+      '/snap/webstorm/current/bin/webstorm.sh',
+    ], args: [] },
   },
   {
     cmd:     'idea',
     name:    'IntelliJ IDEA',
-    note:    'requires CLI launcher via Toolbox',
-    mac:     { app: 'IntelliJ IDEA', args: [] },
-    win:     { paths: [], args: [] },
-    linux:   { paths: ['/opt/idea/bin/idea.sh'], args: [] },
+    mac:     { app: 'IntelliJ IDEA', toolboxApp: 'IntelliJ IDEA', args: [] },
+    win:     { paths: [
+      '{LOCALAPPDATA}\\JetBrains\\Toolbox\\scripts\\idea.cmd',
+      '{LOCALAPPDATA}\\Programs\\IntelliJ IDEA Community Edition\\bin\\idea64.exe',
+      '{ProgramFiles}\\JetBrains\\IntelliJ IDEA\\bin\\idea64.exe',
+    ], args: [] },
+    linux:   { paths: [
+      `${os.homedir()}/.local/bin/idea`,
+      '/opt/idea/bin/idea.sh',
+      '/snap/intellij-idea-community/current/bin/idea.sh',
+    ], args: [] },
   },
   {
     cmd:     'zed',
@@ -208,10 +242,11 @@ const buildIDEOptions = () => {
     let strategy  = 'cli';
 
     if (platform === 'darwin' && ide.mac) {
-      // Mac — check .app bundle in /Applications or ~/Applications
-      const system = `/Applications/${ide.mac.app}.app`;
-      const user   = path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`);
-      detected = fs.existsSync(system) || fs.existsSync(user);
+      // Mac — check .app bundle in /Applications, ~/Applications, and JetBrains Toolbox
+      const system   = `/Applications/${ide.mac.app}.app`;
+      const user     = path.join(os.homedir(), 'Applications', `${ide.mac.app}.app`);
+      const toolbox  = path.join(os.homedir(), 'Applications', 'JetBrains Toolbox', `${ide.mac.app}.app`);
+      detected = fs.existsSync(system) || fs.existsSync(user) || fs.existsSync(toolbox);
       if (detected) strategy = 'mac-app';
 
     } else if (platform === 'win32' && ide.win) {
@@ -913,6 +948,9 @@ If a dependency is not met:
     name:    projectName.toLowerCase().replace(/\s+/g, '-'),
     version: '1.0.0',
     private: true,
+    dependencies: {
+      prompts: '^2.4.2',
+    },
     scripts: {
       launch:   'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/launch.js',
       complete: 'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/complete.js',
@@ -920,6 +958,16 @@ If a dependency is not met:
   };
   fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(userPackage, null, 2), 'utf8');
   console.log(`  ${green('✓')} package.json generated`);
+
+  // ── Install dependencies ──────────────────────────────────────────────────────
+
+  try {
+    console.log(dim('  Installing dependencies...'));
+    execSync('npm install', { cwd: ROOT, stdio: 'pipe' });
+    console.log(`  ${green('✓')} Dependencies installed`);
+  } catch {
+    console.log(yellow('  ⚠ npm install failed — run npm install manually before launching'));
+  }
 
   // ── Tracking ──────────────────────────────────────────────────────────────────
 
@@ -931,6 +979,29 @@ If a dependency is not met:
   } else {
     console.log(dim('  ℹ .tracking.json already exists — preserved'));
   }
+
+  // ── Generate .paths.json ──────────────────────────────────────────────────────
+
+  const pathsMap = {};
+  const clientConventions = FRAMEWORK_CONVENTIONS.client[clientFw?.value] || {};
+  const backendConventions = FRAMEWORK_CONVENTIONS.backend[backendFwObj?.value] || {};
+
+  if (Object.keys(clientConventions).length) {
+    pathsMap.client = {};
+    Object.entries(clientConventions).forEach(([key, value]) => {
+      pathsMap.client[key] = { expected: value, current: null, status: 'pending' };
+    });
+  }
+
+  if (Object.keys(backendConventions).length) {
+    pathsMap.backend = {};
+    Object.entries(backendConventions).forEach(([key, value]) => {
+      pathsMap.backend[key] = { expected: value, current: null, status: 'pending' };
+    });
+  }
+
+  fs.writeFileSync(path.join(RUNTIME_DIR, '.paths.json'), JSON.stringify(pathsMap, null, 2), 'utf8');
+  console.log(`  ${green('✓')} .paths.json generated`);
 
   // ── Lock ─────────────────────────────────────────────────────────────────────
 
