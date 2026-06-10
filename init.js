@@ -934,8 +934,9 @@ const main = async () => {
     }
   };
 
-  copyDirExcluding(path.join(TEMPLATES, 'client'), path.join(ROOT, 'client'),  ['agents', 'frameworks']);
-  copyDirExcluding(path.join(TEMPLATES, 'shared'), path.join(ROOT, 'shared'),  ['agents', 'frameworks']);
+  copyDirExcluding(path.join(TEMPLATES, 'client'), path.join(ROOT, 'client'), ['agents', 'frameworks']);
+  if (fs.existsSync(path.join(TEMPLATES, 'shared')))
+    copyDirExcluding(path.join(TEMPLATES, 'shared'), path.join(ROOT, 'shared'), ['agents', 'frameworks']);
   if (backendType === 'separate') {
     copyDirExcluding(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'), ['agents', 'frameworks']);
     fs.writeFileSync(path.join(ROOT, 'backend', '.gitkeep'), '', 'utf8');
