@@ -919,13 +919,38 @@ const main = async () => {
 
   const TEMPLATES = path.join(CORE_DIR, 'templates');
 
-  copyDir(path.join(TEMPLATES, 'client'),  path.join(ROOT, 'client'));
-  copyDir(path.join(TEMPLATES, 'shared'),  path.join(ROOT, 'shared'));
+  // ── Copy scope directories (app code + CLAUDE.md only) ─────────────────────
+  // agents/ and frameworks/ are now at repo root as .agents/ and .frameworks/
+  // We copy client/backend/shared but exclude agents/ and frameworks/ subdirs
+
+  const copyDirExcluding = (src, dest, exclude = []) => {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src)) {
+      if (exclude.includes(entry)) continue;
+      const srcFile  = path.join(src, entry);
+      const destFile = path.join(dest, entry);
+      if (fs.statSync(srcFile).isDirectory()) copyDirExcluding(srcFile, destFile, []);
+      else fs.copyFileSync(srcFile, destFile);
+    }
+  };
+
+  copyDirExcluding(path.join(TEMPLATES, 'client'), path.join(ROOT, 'client'),  ['agents', 'frameworks']);
+  copyDirExcluding(path.join(TEMPLATES, 'shared'), path.join(ROOT, 'shared'),  ['agents', 'frameworks']);
   if (backendType === 'separate') {
-    copyDir(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'));
-    // Ensure backend/ is tracked by git even before the API agent scaffolds
+    copyDirExcluding(path.join(TEMPLATES, 'backend'), path.join(ROOT, 'backend'), ['agents', 'frameworks']);
     fs.writeFileSync(path.join(ROOT, 'backend', '.gitkeep'), '', 'utf8');
   }
+
+  // ── Copy agents and frameworks to repo root as .agents/ and .frameworks/ ────
+
+  copyDir(path.join(TEMPLATES, 'client',  'agents'),     path.join(ROOT, '.agents',     'client'));
+  copyDir(path.join(TEMPLATES, 'client',  'frameworks'), path.join(ROOT, '.frameworks', 'client'));
+  copyDir(path.join(TEMPLATES, 'shared',  'agents'),     path.join(ROOT, '.agents',     'shared'));
+  if (backendType === 'separate') {
+    copyDir(path.join(TEMPLATES, 'backend', 'agents'),     path.join(ROOT, '.agents',     'backend'));
+    copyDir(path.join(TEMPLATES, 'backend', 'frameworks'), path.join(ROOT, '.frameworks', 'backend'));
+  }
+
   fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
   fs.copyFileSync(path.join(TEMPLATES, 'CONTRACTS.md'), path.join(ROOT, 'CONTRACTS.md'));
   console.log(`  ${green('✓')} Templates copied`);
