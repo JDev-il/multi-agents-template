@@ -103,6 +103,13 @@ if (isGlobalCLI) {
     fs.mkdirSync(targetDir, { recursive: true });
     process.chdir(targetDir);
 
+    // Write temporary package.json so npm run init works if abandoned mid-init
+    fs.writeFileSync(
+      path.join(targetDir, 'package.json'),
+      JSON.stringify({ name: path.basename(targetDir), version: '1.0.0', scripts: { init: 'multi-agents init' } }, null, 2),
+      'utf8'
+    );
+
     // Initialize git
     try {
       execSync('git init -b main', { cwd: targetDir, stdio: 'pipe' });
