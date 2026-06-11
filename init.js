@@ -1002,6 +1002,7 @@ const main = async () => {
   ensureGitignore('.agents-core/');
   ensureGitignore('.scaffold/');
   ensureGitignore('.workflow/');
+  ensureGitignore('node_modules/');
 
   // Remove template-specific gitignore entries so generated files can be committed
   const gitignorePath = path.join(ROOT, '.gitignore');
