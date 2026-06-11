@@ -944,12 +944,12 @@ const main = async () => {
 
   // ── Copy agents and frameworks to repo root as .agents/ and .frameworks/ ────
 
-  copyDir(path.join(TEMPLATES, 'client',  'agents'),     path.join(ROOT, '.agents',     'client'));
-  copyDir(path.join(TEMPLATES, 'client',  'frameworks'), path.join(ROOT, '.frameworks', 'client'));
-  copyDir(path.join(TEMPLATES, 'shared',  'agents'),     path.join(ROOT, '.agents',     'shared'));
+  copyDir(path.join(TEMPLATES, '.agents',  'client'),     path.join(ROOT, '.agents',     'client'));
+  copyDir(path.join(TEMPLATES, '.frameworks',  'client'), path.join(ROOT, '.frameworks', 'client'));
+  copyDir(path.join(TEMPLATES, '.agents',  'shared'),     path.join(ROOT, '.agents',     'shared'));
   if (backendType === 'separate') {
-    copyDir(path.join(TEMPLATES, 'backend', 'agents'),     path.join(ROOT, '.agents',     'backend'));
-    copyDir(path.join(TEMPLATES, 'backend', 'frameworks'), path.join(ROOT, '.frameworks', 'backend'));
+    copyDir(path.join(TEMPLATES, '.agents',  'backend'),     path.join(ROOT, '.agents',     'backend'));
+    copyDir(path.join(TEMPLATES, '.frameworks',  'backend'), path.join(ROOT, '.frameworks', 'backend'));
   }
 
   fs.copyFileSync(path.join(TEMPLATES, 'CLAUDE.md'),    path.join(ROOT, 'CLAUDE.md'));
