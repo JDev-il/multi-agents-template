@@ -80,9 +80,19 @@ const red    = (s) => `${c.red}${s}${c.reset}`;
 
 // ── CLI argument handling ─────────────────────────────────────────────────────
 
-const args       = process.argv.slice(2);
+const args        = process.argv.slice(2);
 const isGlobalCLI = args[0] === 'init' && args[1];
+const isReInit    = args[0] === 'init' && !args[1];
 const projectArg  = isGlobalCLI ? args[1] : null;
+
+if (isReInit) {
+  // Re-init from inside project or worktree - self-relocate to repo root
+  try {
+    const { execSync } = require('child_process');
+    const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
+    process.chdir(repoRoot);
+  } catch { /* stay in current directory */ }
+}
 
 if (isGlobalCLI) {
   const targetDir = path.resolve(process.cwd(), projectArg);
@@ -1137,8 +1147,9 @@ If a dependency is not met:
       prompts: '^2.4.2',
     },
     scripts: {
-      agent:    'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/agent.js',
-      complete: 'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/complete.js',
+      init:     'multi-agents init',
+      agent:    'node .workflow/agent.js',
+      complete: 'node .workflow/complete.js',
     },
   };
   fs.writeFileSync(path.join(ROOT, 'package.json'), JSON.stringify(userPackage, null, 2), 'utf8');
