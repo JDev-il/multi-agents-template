@@ -89,7 +89,8 @@ if (isReInit) {
   // Re-init from inside project or worktree - self-relocate to repo root
   try {
     const { execSync } = require('child_process');
-    const repoRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
+    const gitCommonDir = execSync('git rev-parse --git-common-dir', { encoding: 'utf8' }).trim();
+    const repoRoot = require('path').resolve(gitCommonDir, '..');
     process.chdir(repoRoot);
   } catch { /* stay in current directory */ }
 }
