@@ -88,25 +88,23 @@ if (isGlobalCLI) {
   const targetDir = path.resolve(process.cwd(), projectArg);
 
   if (fs.existsSync(targetDir)) {
-    console.log(`\n${red(`  ✗ Directory "${projectArg}" already exists.`)}`);
-    console.log(dim('  Choose a different project name.\n'));
-    process.exit(1);
-  }
+    process.chdir(targetDir);
+  } else {
+    fs.mkdirSync(targetDir, { recursive: true });
+    process.chdir(targetDir);
 
-  fs.mkdirSync(targetDir, { recursive: true });
-  process.chdir(targetDir);
-
-  // Initialize git
-  try {
-    execSync('git init -b main', { cwd: targetDir, stdio: 'pipe' });
-    execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
-  } catch {
-    // Fallback for older git versions that don't support -b flag
+    // Initialize git
     try {
-      execSync('git init', { cwd: targetDir, stdio: 'pipe' });
-      execSync('git checkout -b main', { cwd: targetDir, stdio: 'pipe' });
+      execSync('git init -b main', { cwd: targetDir, stdio: 'pipe' });
       execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
-    } catch { /* continue */ }
+    } catch {
+      // Fallback for older git versions that don't support -b flag
+      try {
+        execSync('git init', { cwd: targetDir, stdio: 'pipe' });
+        execSync('git checkout -b main', { cwd: targetDir, stdio: 'pipe' });
+        execSync('git commit --allow-empty -m "init: project created"', { cwd: targetDir, stdio: 'pipe' });
+      } catch { /* continue */ }
+    }
   }
 }
 
