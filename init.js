@@ -647,7 +647,7 @@ const main = async () => {
 
     console.log(`\n${yellow('  This project has already been initialized.')}`);
     console.log(dim(`  Initialized on: ${ts}\n`));
-    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run launch')}`);
+    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run agent')}`);
     console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
     console.log(`  ${dim('3.')} Exit\n`);
 
@@ -656,7 +656,7 @@ const main = async () => {
     if (choice === '1') {
       console.log('');
       rl2.close();
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+      const child = spawn('node', [path.join(ROOT, '.workflow', 'agent.js')], {
         stdio: 'inherit',
         cwd: ROOT,
       });
@@ -1102,7 +1102,7 @@ ${backendType === 'integrated'
 - [ ] LOGIC - business rules
 - [ ] EVENTS - webhooks and queues
 - [ ] JOBS - background tasks`
-  : 'Not configured - run node .workflow/launch.js and select backend when ready'}
+  : 'Not configured - run node .workflow/agent.js and select backend when ready'}
 
 ## Shared
 - [ ] CONTRACTS.md - no shared types defined yet
@@ -1139,7 +1139,7 @@ If a dependency is not met:
       prompts: '^2.4.2',
     },
     scripts: {
-      launch:   'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/launch.js',
+      agent:    'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/agent.js',
       complete: 'cd "$(git rev-parse --git-common-dir)/.." && node .workflow/complete.js',
     },
   };
@@ -1216,7 +1216,7 @@ branch=$(git symbolic-ref --short HEAD 2>/dev/null)
 if [ "$branch" = "main" ]; then
   echo ""
   echo "  ⚠ Direct commits to main are not allowed."
-  echo "    Use npm run launch to start a task."
+  echo "    Use npm run agent to start a task."
   echo ""
   exit 1
 fi
@@ -1238,7 +1238,7 @@ fi
   console.log(`  ${bold('How do you want to build?')}\n`);
 
   console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
-  console.log(`${dim('     · Every task should start with npm run launch')}`);
+  console.log(`${dim('     · Every task should start with npm run agent')}`);
   console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
   console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
   console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
@@ -1257,7 +1257,7 @@ fi
     '1': {
       label: 'Multi-Agent Driven Orchestration',
       full: [
-        'Every task must start with npm run launch.',
+        'Every task must start with npm run agent.',
         'Agent sessions load only task-relevant context, enabling reliable',
         'chaining, predictable behavior, and efficient token usage.',
         '',
@@ -1333,7 +1333,7 @@ fi
     separator();
     console.log(`\n  ${bold('How do you want to build?')}\n`);
     console.log(`  ${dim('1.')} ${bold('Multi-Agent Driven Orchestration')}`);
-    console.log(`${dim('     · Every task should start with npm run launch')}`);
+    console.log(`${dim('     · Every task should start with npm run agent')}`);
     console.log(`${dim('     · Each agent runs in its own git worktree — an isolated branch')}`);
     console.log(`${dim('       and folder that merges back into main via npm run complete')}`);
     console.log(`${dim('     · Faster builds and lower token spend than a single long session')}`);
@@ -1362,7 +1362,7 @@ fi
     if (launchConfirm) {
       rl.close();
       console.log('');
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'launch.js')], {
+      const child = spawn('node', [path.join(ROOT, '.workflow', 'agent.js')], {
         stdio: 'inherit',
         cwd: ROOT,
       });
@@ -1373,7 +1373,7 @@ fi
 
   console.log('');
   console.log(`  ${bold('When ready, run:')}`);
-  console.log(`  ${cyan('npm run launch')}\n`);
+  console.log(`  ${cyan('npm run agent')}\n`);
   separator();
   console.log('');
   rl.close();

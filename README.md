@@ -17,7 +17,7 @@ npm install -g multi-agents-cli
 ```bash
 multi-agents init my-project
 cd my-project
-npm run launch
+npm run agent
 ```
 
 `multi-agents init` will:
@@ -36,7 +36,7 @@ npm run launch
 ### 1. Launch a task
 
 ```bash
-npm run launch
+npm run agent
 ```
 
 Select scope → agent → describe the task (or press Enter for default) →
@@ -52,7 +52,7 @@ the tracking slot.
 
 ### 3. Repeat
 
-`npm run complete` chains back to `npm run launch`. Pick the next agent
+`npm run complete` chains back to `npm run agent`. Pick the next agent
 and continue building.
 
 ---
@@ -62,7 +62,7 @@ and continue building.
 Choose during `multi-agents init`:
 
 **Multi-Agent Driven Orchestration** *(recommended)*
-Every task should start with `npm run launch`. Each agent works in its own
+Every task should start with `npm run agent`. Each agent works in its own
 git worktree — an isolated branch and folder that merges back into main via
 `npm run complete`. Faster builds and lower token spend than a single long session.
 ⚠ If you commit directly to main yourself, you bypass the framework and break
@@ -225,7 +225,7 @@ The launcher enforces structural rules before any worktree is created:
 
 **Status values:** `null` (never launched) · `ACTIVE` (running) · `MISSING` (worktree deleted without completing)
 
-Managed entirely by `launch.js` and `complete.js`. Never edit manually.
+Managed entirely by `agent.js` and `complete.js`. Never edit manually.
 
 ---
 
@@ -253,7 +253,7 @@ Written at init time. Updated by agents after scaffolding their framework.
 
 ## Running Commands From Anywhere
 
-`npm run launch` and `npm run complete` self-relocate to the repo root
+`npm run agent` and `npm run complete` self-relocate to the repo root
 via `git rev-parse --git-common-dir`. Run them from the worktree terminal,
 the repo root, or anywhere inside the git tree — they always work.
 
@@ -280,7 +280,7 @@ my-project/
 │   ├── .paths.json
 │   └── .initialized
 └── .workflow/
-    ├── launch.js
+    ├── agent.js
     ├── complete.js
     └── guards.js
 ```
