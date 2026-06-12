@@ -695,14 +695,22 @@ const main = async () => {
       });
       console.log(`  ${dim(`${active.length + 1}.`)} ${dim('Back')}\n`);
 
-      const rl3 = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const ask3 = (q) => new Promise((resolve) => rl3.question(q, (a) => { rl3.close(); resolve(a.trim()); }));
-      const pick = await ask3(`  ${bold('Select')} ${dim(`(1-${active.length + 1})`)}: `);
+      const pickRes = await prompts({
+        type: 'select',
+        name: 'value',
+        message: 'Which process do you want to restart?',
+        choices: [
+          ...active.map(({ scope, agent, data }) => ({
+            title: `${agent} (${scope}) - ${data.status || 'ACTIVE'}`,
+            value: agent,
+          })),
+          { title: 'Back', value: '__back__' },
+        ],
+      }, { onCancel: () => process.exit(0) });
 
-      const idx = parseInt(pick) - 1;
-      if (idx === active.length) return false; // Back
-      if (idx < 0 || idx >= active.length) return false;
-
+      if (!pickRes.value || pickRes.value === '__back__') return false;
+      const idx = active.findIndex(a => a.agent === pickRes.value);
+      if (idx < 0) return false;
       const { scope, agent, data } = active[idx];
       const deps = (DEPENDENCIES[scope] || {})[agent] || [];
       const affectedAgents = [{ scope, agent, data }];
@@ -734,11 +742,17 @@ const main = async () => {
 
       console.log(`\n  ${red('This cannot be undone.')}\n`);
 
-      const rl4 = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const ask4 = (q) => new Promise((resolve) => rl4.question(q, (a) => { rl4.close(); resolve(a.trim()); }));
-      const confirm = await ask4(`  Continue? (y/N): `);
+      const confirmRes = await prompts({
+        type: 'select',
+        name: 'value',
+        message: 'This cannot be undone. Continue?',
+        choices: [
+          { title: 'Yes - wipe and restart', value: 'y' },
+          { title: 'Cancel', value: 'n' },
+        ],
+      }, { onCancel: () => process.exit(0) });
 
-      if (confirm.toLowerCase() !== 'y') {
+      if (confirmRes.value !== 'y') {
         console.log(dim('\n  Cancelled.\n'));
         return false;
       }
