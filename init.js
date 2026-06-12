@@ -730,7 +730,7 @@ const main = async () => {
         }
       }
 
-      if (deps.length > 0) {
+      if (affectedAgents.length > 1) {
         console.log(`\n  ${yellow('Dependent processes will also be wiped.')}`);
       }
 
@@ -739,7 +739,7 @@ const main = async () => {
       const confirmRes = await prompts({
         type: 'select',
         name: 'value',
-        message: 'This cannot be undone. Continue?',
+        message: 'Confirm restart?',
         choices: [
           { title: 'Yes - wipe and restart', value: 'y' },
           { title: 'Cancel', value: 'n' },
