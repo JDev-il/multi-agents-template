@@ -658,38 +658,140 @@ const main = async () => {
 
   if (fs.existsSync(LOCK_FILE)) {
     const ts = fs.readFileSync(LOCK_FILE, 'utf8').trim();
-    const rl2 = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const ask2 = (q) => new Promise((resolve) => rl2.question(q, (a) => resolve(a.trim())));
+    const trackingPath = path.join(RUNTIME_DIR, '.tracking.json');
+    const tracking = fs.existsSync(trackingPath) ? JSON.parse(fs.readFileSync(trackingPath, 'utf8')) : {};
 
-    console.log(`\n${yellow('  This project has already been initialized.')}`);
-    console.log(dim(`  Initialized on: ${ts}\n`));
-    console.log(`  ${dim('1.')} Continue  — run ${cyan('npm run agent')}`);
-    console.log(`  ${dim('2.')} Reset     — delete config and re-run initialization`);
-    console.log(`  ${dim('3.')} Exit\n`);
+    // Dependency map — primary agents whose restart cascades to dependents
+    const DEPENDENCIES = {
+      client: { UI: ['LOGIC', 'FORMS', 'ROUTING', 'TESTING', 'ACCESSIBILITY'] },
+      backend: { DB: ['API', 'AUTH', 'LOGIC', 'EVENTS', 'JOBS', 'TESTING'] },
+      shared: {},
+    };
 
-    const choice = await ask2(`  ${bold('Select')} ${dim('(1-3)')}: `);
+    const getActiveAgents = (scope) => {
+      const agents = tracking[scope] || {};
+      return Object.entries(agents).filter(([, v]) => v && v.branch);
+    };
 
-    if (choice === '1') {
-      console.log('');
-      rl2.close();
-      const child = spawn('node', [path.join(ROOT, '.workflow', 'agent.js')], {
-        stdio: 'inherit',
-        cwd: ROOT,
+    const showRestartProcess = async () => {
+      // Build list of active processes across all scopes
+      const active = [];
+      for (const scope of ['client', 'backend', 'shared']) {
+        for (const [agent, data] of getActiveAgents(scope)) {
+          active.push({ scope, agent, data });
+        }
+      }
+
+      if (active.length === 0) {
+        console.log(yellow('\n  No active processes found.\n'));
+        return false;
+      }
+
+      separator();
+      console.log(`\n${bold('  Which process do you want to restart?')}\n`);
+      active.forEach(({ scope, agent, data }, i) => {
+        const status = data.status || 'ACTIVE';
+        console.log(`  ${dim(`${i + 1}.`)} ${bold(agent)} ${dim(`(${scope})`)} - ${dim(status)}`);
       });
-      child.on('exit', (code) => process.exit(code));
-      return;
-    } else if (choice === '2') {
-      console.log(yellow('\n  Resetting configuration...\n'));
-      fs.unlinkSync(LOCK_FILE);
-      const configPath = path.join(RUNTIME_DIR, '.config.json');
-      if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
-      rl2.close();
-      console.log(green('  Reset complete. Re-running initialization...\n'));
-      // Fall through to run init again
-    } else {
-      console.log(dim('\n  Exited.\n'));
-      rl2.close();
-      return;
+      console.log(`  ${dim(`${active.length + 1}.`)} ${dim('Back')}\n`);
+
+      const rl3 = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const ask3 = (q) => new Promise((resolve) => rl3.question(q, (a) => { rl3.close(); resolve(a.trim()); }));
+      const pick = await ask3(`  ${bold('Select')} ${dim(`(1-${active.length + 1})`)}: `);
+
+      const idx = parseInt(pick) - 1;
+      if (idx === active.length) return false; // Back
+      if (idx < 0 || idx >= active.length) return false;
+
+      const { scope, agent, data } = active[idx];
+      const deps = (DEPENDENCIES[scope] || {})[agent] || [];
+      const affectedAgents = [{ scope, agent, data }];
+
+      // Find dependent agents that are also active
+      for (const dep of deps) {
+        const depData = (tracking[scope] || {})[dep];
+        if (depData && depData.branch) {
+          affectedAgents.push({ scope, agent: dep, data: depData });
+        }
+      }
+
+      // Show warning with exact names
+      separator();
+      console.log(`\n${yellow(`  ⚠ Restarting ${agent} will delete:`)}`);
+      for (const { agent: a, data: d } of affectedAgents) {
+        console.log(`\n  ${bold(a)}`);
+        console.log(`    - Branch        (${d.branch})`);
+        console.log(`    - Remote branch (origin/${d.branch})`);
+        if (d.worktreePath) {
+          const wtName = path.relative(ROOT, d.worktreePath);
+          console.log(`    - Worktree      (${wtName})`);
+        }
+      }
+
+      if (deps.length > 0) {
+        console.log(`\n  ${yellow('Dependent processes will also be wiped.')}`);
+      }
+
+      console.log(`\n  ${red('This cannot be undone.')}\n`);
+
+      const rl4 = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const ask4 = (q) => new Promise((resolve) => rl4.question(q, (a) => { rl4.close(); resolve(a.trim()); }));
+      const confirm = await ask4(`  Continue? (y/N): `);
+
+      if (confirm.toLowerCase() !== 'y') {
+        console.log(dim('\n  Cancelled.\n'));
+        return false;
+      }
+
+      // Perform wipe
+      for (const { agent: a, data: d, scope: s } of affectedAgents) {
+        try { execSync(`git worktree remove "${d.worktreePath}" --force`, { cwd: ROOT, stdio: 'pipe' }); } catch {}
+        try { execSync(`git branch -D ${d.branch}`, { cwd: ROOT, stdio: 'pipe' }); } catch {}
+        try { execSync(`git push origin --delete ${d.branch}`, { cwd: ROOT, stdio: 'pipe' }); } catch {}
+        // Clear tracking
+        if (tracking[s] && tracking[s][a]) {
+          tracking[s][a] = { branch: null, timestamp: null, launchedAt: null, status: null, missingCount: 0, worktreePath: null };
+        }
+        console.log(`  ${green('✓')} ${a} wiped`);
+      }
+
+      fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
+      console.log(`\n  ${green('✓')} Restart complete.\n`);
+      return true;
+    };
+
+    if (prompts && process.stdin.isTTY) {
+      let lockLoop = true;
+      while (lockLoop) {
+        separator();
+        console.log(`\n${yellow('  This project has already been initialized.')}`);
+        console.log(dim(`  Initialized on: ${ts}\n`));
+
+        const res = await prompts({
+          type: 'select',
+          name: 'value',
+          message: 'What would you like to do?',
+          choices: [
+            { title: 'Resume', description: 'Pick up where you left off', value: '1' },
+            { title: 'Restart process', description: 'Wipe and restart a specific process', value: '2' },
+            { title: 'Cancel', value: '3' },
+          ],
+        }, { onCancel: () => process.exit(0) });
+
+        if (res.value === '1') {
+          const child = spawn('node', [path.join(ROOT, '.workflow', 'agent.js')], { stdio: 'inherit', cwd: ROOT });
+          child.on('exit', (code) => process.exit(code));
+          return;
+        } else if (res.value === '2') {
+          const didRestart = await showRestartProcess();
+          if (!didRestart) continue; // Back — show menu again
+          lockLoop = false;
+          return;
+        } else {
+          console.log(dim('\n  Cancelled.\n'));
+          process.exit(0);
+        }
+      }
     }
   }
 
