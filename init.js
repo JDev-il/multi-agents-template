@@ -688,12 +688,6 @@ const main = async () => {
       }
 
       separator();
-      console.log(`\n${bold('  Which process do you want to restart?')}\n`);
-      active.forEach(({ scope, agent, data }, i) => {
-        const status = data.status || 'ACTIVE';
-        console.log(`  ${dim(`${i + 1}.`)} ${bold(agent)} ${dim(`(${scope})`)} - ${dim(status)}`);
-      });
-      console.log(`  ${dim(`${active.length + 1}.`)} ${dim('Back')}\n`);
 
       const pickRes = await prompts({
         type: 'select',
