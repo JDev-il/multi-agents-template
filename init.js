@@ -683,8 +683,8 @@ const main = async () => {
       }
 
       if (active.length === 0) {
-        console.log(yellow('\n  No active processes found.\n'));
-        return false;
+        console.log(yellow('\n  No active processes found. Nothing to restart.\n'));
+        return 'empty';
       }
 
       separator();
@@ -702,7 +702,7 @@ const main = async () => {
         ],
       }, { onCancel: () => process.exit(0) });
 
-      if (!pickRes.value || pickRes.value === '__back__') return false;
+      if (!pickRes.value || pickRes.value === '__back__') return 'back';
       const idx = active.findIndex(a => a.agent === pickRes.value);
       if (idx < 0) return false;
       const { scope, agent, data } = active[idx];
@@ -748,7 +748,7 @@ const main = async () => {
 
       if (confirmRes.value !== 'y') {
         console.log(dim('\n  Cancelled.\n'));
-        return false;
+        return 'back';
       }
 
       // Perform wipe
@@ -765,7 +765,7 @@ const main = async () => {
 
       fs.writeFileSync(trackingPath, JSON.stringify(tracking, null, 2), 'utf8');
       console.log(`\n  ${green('✓')} Restart complete.\n`);
-      return true;
+      return 'done';
     };
 
     if (prompts && process.stdin.isTTY) {
@@ -791,8 +791,8 @@ const main = async () => {
           child.on('exit', (code) => process.exit(code));
           return;
         } else if (res.value === '2') {
-          const didRestart = await showRestartProcess();
-          if (!didRestart) continue; // Back — show menu again
+          const restartResult = await showRestartProcess();
+          if (restartResult === 'back') continue; // Back — show menu again
           lockLoop = false;
           return;
         } else {
